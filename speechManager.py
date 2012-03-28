@@ -1,4 +1,5 @@
 import subprocess
+if os.name == 'nt': import speech
 
 class SpeechManager(object):
 	def __init__(self, useQueue = True):
@@ -19,8 +20,11 @@ class SpeechManager(object):
 			self.StopSpeaking()
 		try:
 			print 'Speaking: %s' % text
-			proc = subprocess.Popen('say "%s"' % text,shell=True)
-			self.speechProcesses.append(proc)
+			if os.name == 'nt':
+				speech.say(text)
+			else:
+				proc = subprocess.Popen('say "%s"' % text,shell=True)
+				self.speechProcesses.append(proc)
 		except e:
 			print "Failed to speak: %s" % e
 			
@@ -29,6 +33,14 @@ class SpeechManager(object):
 			p.kill()
 		self.speechProcesses = []
 		self.queue = []
+	
+	def listen(self, phrases=None):
+		if os.name == 'nt':
+			text = speech.input(phraselist=phrases)
+			return text
+		else:
+			print 'Speech recognition currently not supported'
+			return None
 
 def main(): # test
 	s = SpeechManager()
