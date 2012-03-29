@@ -4,12 +4,12 @@ from util import Size, Point
 windowName = 'AccessCam'
 bgModelScale = 1
 rotate = -90
-defaultCamIndex=1
+defaultCamIndex=0
 dwell_time = 60 # in frames
 
 # video sizes: 2592x1944, 1920x1080, 3648x2736?
 sizeSmall = Size(640,480)
-sizeLarge = Size(640,480)
+sizeLarge = Size(800,600)
 sizeHalf = Size(int(sizeLarge.width*bgModelScale), int(sizeLarge.height*bgModelScale))
 
 # document sizes for rectification
@@ -28,4 +28,4 @@ WindowSize = 4
 
 # color tracking variables for the green thing. tweak to track different greens
 greenLow = 40
-greenHigh = 60
+greenHigh = 70

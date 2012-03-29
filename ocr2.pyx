@@ -69,9 +69,10 @@ class OCRManager(object): # manage OCR for a single set of images
 @cython.wraparound(False)
 @cython.cdivision(True)
 cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray[numpy.int16_t, ndim=2] temp, numpy.ndarray[numpy.uint8_t, ndim=2] mgdValues, int videoWidth, int videoHeight, float boxAspectThresh, int boxMinSize, int windowSize, float expand, float foregroundWeight, int dilateSteps, int verbose):
+	print mgdValues
 	cdef int start, end, maxVal, minVal, globalMax, globalMin, i, j, k
-	globalMax = -10000000 # hacky but should be fine
-	globalMin = 10000000
+	globalMax = -1000000 # hacky but should be fine
+	globalMin = 1000000
 	for 0 <= i < videoWidth:
 		for 0 <= j < videoHeight:
 			start = i - windowSize
@@ -88,20 +89,27 @@ cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray
 			if temp[j,i] > globalMax: globalMax = temp[j,i]
 			if temp[j,i] < globalMin: globalMin = temp[j,i]
 
-	if verbose == 1: cv.SaveImage('output/mgd-1.png', cv.GetImage(cv.fromarray(mgdValues)))
+	# if verbose == 1: cv.SaveImage('output/mgd-1.png', mgdValues)
+	print i, j, videoWidth, videoHeight
+	print globalMax, globalMin
 	for 0 <= i < videoWidth:
 		for 0 <= j < videoHeight:
 			if (globalMax-temp[j,i])*foregroundWeight < temp[j,i]-globalMin:
 				mgdValues[j,i] = 255
+			else:
+				mgdValues[j,i] = 0
 
-	if verbose == 1: cv.SaveImage('output/mgd-2.png', cv.GetImage(cv.fromarray(mgdValues)))
-	cv.Dilate(mgdValues,mgdValues,None,dilateSteps)
-	if verbose == 1: cv.SaveImage('output/mgd-3.png', cv.GetImage(cv.fromarray(mgdValues)))
+	if verbose == 1: cv.SaveImage('output/mgd-2.png', cv.fromarray(mgdValues))
+	cv.Dilate(cv.fromarray(mgdValues),cv.fromarray(mgdValues),None,dilateSteps)
+	if verbose == 1: cv.SaveImage('output/mgd-3.png', cv.fromarray(mgdValues))
 	storage = cv.CreateMemStorage(0)
-	contour = cv.FindContours(mgdValues, storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE, (0, 0))
+	contour = cv.FindContours(cv.fromarray(mgdValues), storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE, (0, 0))
 	boxes = []
 	while contour != None:
 		box = Rect._make(cv.BoundingRect(contour))
+		print box
+		print box.width
+		print box.height
 		if box.width/box.height > boxAspectThresh and box.width > boxMinSize and box.height > boxMinSize:
 			boxes.append(box)
 		contour = contour.h_next()

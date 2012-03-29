@@ -18,7 +18,7 @@ class DioptraWindow(gui.GUIWindow):
 		self.highResMode = False
 		self.trackingHand = False
 		self.cameraMode = CameraModes.Default
-		self.thimbleTrack = False
+		self.thimbleTrack = True
 		self.handInView = False
 		
 		# recognition
@@ -143,6 +143,8 @@ class DioptraWindow(gui.GUIWindow):
 			betterCorners = corners
 			print betterCorners
 			
+			cv.SaveImage('output/big.png',frameBig)
+			
 			# determine the approximate aspect ratio of the 
 			if knownAspectRatio is not None: aspectRatio = knownAspectRatio
 			else: 
@@ -198,6 +200,9 @@ class DioptraWindow(gui.GUIWindow):
 			self.UpdateTransforms(imgSize, frame=waitFrame)
 		else: 
 			ocrImage = self.cam.GetFrame()
+		
+		cv.SaveImage('output/ocr.png',ocrImage)
+		print (ocrImage.width, ocrImage.height, BoxAspectThresh, DilateSteps, WindowSize, 15)
 		
 		ocr = ocr2.OCRManager(ocrImage.width, ocrImage.height, boxAspectThresh = BoxAspectThresh, 
 							  dilateSteps = DilateSteps, windowSize = WindowSize, boxMinSize = 15)
@@ -375,7 +380,7 @@ class DioptraWindow(gui.GUIWindow):
 				print 'Do OCR'
 				self.speech.Say("Starting OCR")
 				self.RectifyImage()
-				#self.textAreas = self.DoOCR()
+				self.textAreas = self.DoOCR()
 				#print 'OCR complete, found %d text areas' % len(self.textAreas)
 			elif char == 'i':
 				self.thimbleTrack = not self.thimbleTrack
@@ -420,6 +425,7 @@ x - speech recognition (using recognized phrases)
 		else:
 			speech = self.speech.listen()
 		if speech is not None and speech != '':
+			print 'You said: %s' % speech
 			# search for a match
 			areaText = [a.text for a in self.textAreas]
 			found = False
@@ -509,7 +515,7 @@ x - speech recognition (using recognized phrases)
 
 	# modified from http://www.davidhampgonsalves.com/2011/05/OpenCV-Python-Color-Based-Object-Tracking
 	def GetGreenCursor(self, frame):
-		img = cv.Copy(frame)
+		img = cv.CloneImage(frame)
 		cv.Smooth(img, img, cv.CV_BLUR, 3); 
 		
 		#convert the image to hsv(Hue, Saturation, Value) so its  
@@ -522,7 +528,7 @@ x - speech recognition (using recognized phrases)
 		#both turples which is the hue range(120,140).	OpenCV uses 0-180 as  
 		#a hue range for the HSV color model 
 		thresholded_img =  cv.CreateImage(cv.GetSize(hsv_img), 8, 1) 
-		cv.InRangeS(hsv_img, (lowGreen, 40, 40), (highGreen, 255, 255), thresholded_img) 
+		cv.InRangeS(hsv_img, (greenLow, 40, 40), (greenHigh, 255, 255), thresholded_img) 
 		
 		#determine the objects moments and check that the area is large	 
 		#enough to be our object 
@@ -535,9 +541,9 @@ x - speech recognition (using recognized phrases)
 			#we are tracking by dividing the 1, 0 and 0, 1 moments by the area 
 			x = cv.GetSpatialMoment(moments, 1, 0)/area 
 			y = cv.GetSpatialMoment(moments, 0, 1)/area 
-			return hand2.Gesture.UNKNOWN, (x,y)
+			return hand2.Gesture.UNKNOWN, Point(x,y)
 		else:
-			return hand2.Gesture.NONE, (-1,-1)
+			return hand2.Gesture.NONE, Point(-1,-1)
 			
 	### this is where the magic happens, when we're tracking
 	def TrackHand(self, frame, ycc, skin, bg, bgModel):
@@ -556,7 +562,7 @@ x - speech recognition (using recognized phrases)
 		if not self.handInView and gesture != hand2.Gesture.NONE:
 			self.speech.Say('Hand detected')
 			self.handInView = True
-		elif self.handInView and gesture == hand2.Gesture.None:
+		elif self.handInView and gesture == hand2.Gesture.NONE:
 			self.speech.Say('Hand removed')
 			self.handInView = False
 	
