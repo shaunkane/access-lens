@@ -18,9 +18,11 @@ class DioptraWindow(gui.GUIWindow):
 		self.highResMode = False
 		self.trackingHand = False
 		self.cameraMode = CameraModes.Default
+		self.thimbleTrack = False
+		self.handInView = False
 		
 		# recognition
-		else: self.textAreas = []
+		self.textAreas = []
 		self.rectifyImage = rectifyImage
 		
 		# load ocr and other stuff
@@ -54,6 +56,8 @@ class DioptraWindow(gui.GUIWindow):
 		self.dwellCounter = 0
 		self.directionMode = False
 		
+		print 'Running. Press / for help'
+		
 	# if they exist, load (and show) cached areas from json file (specified in global settings)
 	def LoadCachedAreas(self):
 		try: # to load cached text areas
@@ -61,7 +65,7 @@ class DioptraWindow(gui.GUIWindow):
 			self.textAreas = []
 			for a in areas:
 				self.textAreas.append(TextArea._make(a))
-			print 'Loaded text areas from %s' % jsonFile
+			print 'Loaded text areas from %s' % savedAreaFile
 		except Exception, err:
 			self.textAreas = []
 			traceback.print_exc(file=sys.stdout)
@@ -244,9 +248,9 @@ class DioptraWindow(gui.GUIWindow):
 		#self.speech.Say("found %d items" % (len(textAreas)), interrupt=False)
 		
 		# save to json file
-		jf = open(jsonFile, 'w')
+		jf = open(savedAreaFile, 'w')
 		json.dump(textAreas, jf)
-		print 'Saved file %s' % jsonFile
+		print 'Saved file %s' % savedAreaFile
 		return textAreas
 
 	# get camera image of the appropriate size, and return pointers to the appropriate temp images
@@ -373,9 +377,21 @@ class DioptraWindow(gui.GUIWindow):
 				self.RectifyImage()
 				#self.textAreas = self.DoOCR()
 				#print 'OCR complete, found %d text areas' % len(self.textAreas)
-					
-			elif char == '1':
+			elif char == 'i':
+				self.thimbleTrack = not self.thimbleTrack
+				print 'Toggle thimble track: %s' % self.thimbleTrack
+			elif char == 'q':
+				print 'Loading saved areas (if they exist)'
+				self.LoadCachedAreas()
+			elif char == 'z':
+				print 'Speech recognition (open)'
+				self.GetSpeech(useTextAreas=False)
+			elif char == 'x':
+				print 'Speech recognition (phrases)'
+				self.GetSpeech(useTextAreas=True)
+			elif char == '/':
 				print '''
+q - load saved areas				
 h - switch resolution
 b - background mode
 t - train background
@@ -387,9 +403,31 @@ r - reset BG model
 a - toggle access overlays
 f - find box
 o - start OCR
+i - toggle tracking thimble (vs. tracking bare finger)
+z - speech recognition (open)
+x - speech recognition (using recognized phrases)
 				'''
 		except Exception, err:
 			traceback.print_exc(file=sys.stdout)
+	
+	def GetSpeech(self, useTextAreas=False):
+		speech = ''
+		print 'Speak now'
+		util.beep()
+		if useTextAreas and len(self.textAreas) > 0:
+			areaText = [a.text for a in self.textAreas]
+			speech = self.speech.listen(phrases=areaText)
+		else:
+			speech = self.speech.listen()
+		if speech is not None and speech != '':
+			# search for a match
+			areaText = [a.text for a in self.textAreas]
+			found = False
+			for area in areaText:
+				if area.text.startswith(speech):
+					self.speech.Say('Locating target %s' % area.link.text)					
+					self.directionMode = True					
+					self.tracker.setTarget(util.Centroid(area.link.box), area.link.text and not self.directionMode)
 	
 	def ToggleOverlay(self):
 		if self.docSize is None: self.UpdateTransforms()
@@ -469,16 +507,59 @@ o - start OCR
 			self.DrawCursor(imgToShow)
 		self.ShowImage(imgToShow)
 
+	# modified from http://www.davidhampgonsalves.com/2011/05/OpenCV-Python-Color-Based-Object-Tracking
+	def GetGreenCursor(self, frame):
+		img = cv.Copy(frame)
+		cv.Smooth(img, img, cv.CV_BLUR, 3); 
+		
+		#convert the image to hsv(Hue, Saturation, Value) so its  
+		#easier to determine the color to track(hue) 
+		hsv_img = cv.CreateImage(cv.GetSize(img), 8, 3) 
+		cv.CvtColor(img, hsv_img, cv.CV_BGR2HSV) 
+		
+		#limit all pixels that don't match our criteria, in this case we are  
+		#looking for purple but if you want you can adjust the first value in  
+		#both turples which is the hue range(120,140).	OpenCV uses 0-180 as  
+		#a hue range for the HSV color model 
+		thresholded_img =  cv.CreateImage(cv.GetSize(hsv_img), 8, 1) 
+		cv.InRangeS(hsv_img, (lowGreen, 40, 40), (highGreen, 255, 255), thresholded_img) 
+		
+		#determine the objects moments and check that the area is large	 
+		#enough to be our object 
+		moments = cv.Moments(cv.GetMat(thresholded_img,1), 0)
+		area = cv.GetCentralMoment(moments, 0, 0) 
+		
+		#there can be noise in the video so ignore objects with small areas 
+		if(area > 100000): 
+			#determine the x and y coordinates of the center of the object 
+			#we are tracking by dividing the 1, 0 and 0, 1 moments by the area 
+			x = cv.GetSpatialMoment(moments, 1, 0)/area 
+			y = cv.GetSpatialMoment(moments, 0, 1)/area 
+			return hand2.Gesture.UNKNOWN, (x,y)
+		else:
+			return hand2.Gesture.NONE, (-1,-1)
+			
 	### this is where the magic happens, when we're tracking
 	def TrackHand(self, frame, ycc, skin, bg, bgModel):
 		if not self.tracker.isTracking(): self.directionMode = False
-		#util.GetYCC(frame, ycc)
-		#bg2.FindSkin(ycc, skin, doCleanup=True)
-		bg2.FindBackground(frame, bg, bgModel, update=0, doCleanup=True)
-		cv.And(bg,skin,skin)	
-		cv.MorphologyEx(skin,skin,None,None,cv.CV_MOP_OPEN,2)
-		gesture, self.cursor = self.GetGesture(frame, bg, skin)
-
+		
+		if not self.thimbleTrack:		
+			#util.GetYCC(frame, ycc)
+			#bg2.FindSkin(ycc, skin, doCleanup=True)
+			bg2.FindBackground(frame, bg, bgModel, update=0, doCleanup=True)
+			cv.And(bg,skin,skin)	
+			cv.MorphologyEx(skin,skin,None,None,cv.CV_MOP_OPEN,2)
+			gesture, self.cursor = self.GetGesture(frame, bg, skin)
+		else:
+			gesture, self.cursor = self.GetGreenCursor(frame)
+	
+		if not self.handInView and gesture != hand2.Gesture.NONE:
+			self.speech.Say('Hand detected')
+			self.handInView = True
+		elif self.handInView and gesture == hand2.Gesture.None:
+			self.speech.Say('Hand removed')
+			self.handInView = False
+	
 		if self.lastGesture is None or gesture != self.lastGesture:
 			self.lastGesture = gesture
 			print 'Gesture: %s' % self.lastGesture	
@@ -497,7 +578,7 @@ o - start OCR
 					self.dwellCounter = 0
 				else:
 					self.dwellCounter += 1
-					if self.dwellCounter == 60:
+					if self.dwellCounter == dwell_time:
 						self.directionMode = True
 						self.speech.Say('Locating target %s' % area.link.text)
 						self.tracker.setTarget(util.Centroid(area.link.box), area.link.text and not self.directionMode)
