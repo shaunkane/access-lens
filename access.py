@@ -16,7 +16,7 @@ class DioptraWindow(gui.GUIWindow):
 
 		# mode params
 		self.highResMode = False
-		self.trackingHand = False
+		self.trackingHand = True
 		self.cameraMode = CameraModes.Default
 		self.thimbleTrack = True
 		self.handInView = False
