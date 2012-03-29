@@ -5,7 +5,7 @@ windowName = 'AccessCam'
 bgModelScale = 1
 rotate = -90
 defaultCamIndex=1
-useGestures = False
+dwell_time = 60 # in frames
 
 # video sizes: 2592x1944, 1920x1080, 3648x2736?
 sizeSmall = Size(640,480)
