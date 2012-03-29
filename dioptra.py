@@ -1,5 +1,5 @@
 import cv, numpy, sys, json, math, collections, traceback
-import ocr2, util, bg2, camera, gui, hand2, dict, speech, tracker
+import ocr2, util, bg2, camera, gui, hand2, dict, speechManager, tracker
 from settings import *
 from util import Size, Enum
 
@@ -8,7 +8,7 @@ TextArea = collections.namedtuple('TextArea', 'text box')
 OverlayArea = collections.namedtuple('OverlayArea', 'text box link')
 
 class DioptraWindow(gui.GUIWindow):
-	def __init__(self, title="Window", scale=1, rotate=rotate, loadCachedAreas=True, rectifyImage=False):
+	def __init__(self, title="Window", scale=1, rotate=rotate, rectifyImage=False):
 		super(DioptraWindow,self).__init__(title, scale, rotate)
 
 		# set up scratch images
@@ -20,13 +20,12 @@ class DioptraWindow(gui.GUIWindow):
 		self.cameraMode = CameraModes.Default
 		
 		# recognition
-		if loadCachedAreas: self.LoadCachedAreas()
 		else: self.textAreas = []
 		self.rectifyImage = rectifyImage
 		
 		# load ocr and other stuff
 		self.hand = hand2.HandClassifier()
-		self.speech = speech.SpeechManager()
+		self.speech = speechManager.SpeechManager()
 		self.tracker = tracker.Tracker(self.speech)
 		self.dict = dict.DictionaryManager(dictFile, userDictFile)
 		
@@ -58,7 +57,7 @@ class DioptraWindow(gui.GUIWindow):
 	# if they exist, load (and show) cached areas from json file (specified in global settings)
 	def LoadCachedAreas(self):
 		try: # to load cached text areas
-			areas = json.load(file(jsonFile))
+			areas = json.load(file(savedAreaFile))
 			self.textAreas = []
 			for a in areas:
 				self.textAreas.append(TextArea._make(a))

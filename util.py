@@ -1,6 +1,9 @@
 import cv, numpy, itertools, math, subprocess, sys, collections
 import bg2
 
+def beep():
+	print '\a'
+
 # enum code taken from http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python/1695250#1695250
 def Enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)

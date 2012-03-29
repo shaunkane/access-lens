@@ -3,14 +3,6 @@ cimport cython
 import cv, numpy
 import util
 
-# from bg2.pyx
-cdef short FOREGROUND, BACKGROUND, SHADOW, SKIN, MAYBE_SKIN
-FOREGROUND = 255
-BACKGROUND = 0
-SHADOW = 50
-SKIN = 128
-MAYBE_SKIN = 90
-
 class Gesture:
 	NONE = "None"
 	ONEFINGER = "One finger"

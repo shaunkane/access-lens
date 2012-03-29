@@ -1,4 +1,5 @@
 #! /usr/bin/env python 
+# this is just for testing. to be deleted!
  
 import cv 
  
