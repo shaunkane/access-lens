@@ -23,7 +23,7 @@ register_openers()
 # send to the cloud, and wait until the response appears
 # save the 
 def DoCloudOCR(filename):
-	
+	pass
 
 class OCRManager(object): # manage OCR for a single set of images
 	def __init__(self, width, height, boxAspectThresh = 0, boxMinSize = 30, windowSize = 12, expand = .01, foregroundWeight = 0.3, dilateSteps = 5, laplaceLevel = 3, useCloud = False):
@@ -63,7 +63,7 @@ class OCRManager(object): # manage OCR for a single set of images
 
 	def CallOCREngine(self, fileID, workingDirectory=DefaultWorkingDirectory, recognizer=DefaultRecognizer):
 		if recognizer == Recognizer.CLOUD:
-			
+			pass
 		elif recognizer == Recognizer.OCROPUS:
 			outputName = str(fileID) + '.txt'
 			proc = subprocess.Popen('ocropus page box%s.tiff > %s' % (fileID,outputName), cwd=workingDirectory, shell=True)
