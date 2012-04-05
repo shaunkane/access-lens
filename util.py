@@ -103,7 +103,7 @@ def RotateImage(img, dest=None, angle=90): # angle in degrees
 # end image processing
 
 # homography and perspective transform
-def FindHomography(srcPoints, destPoints, homographyMatrix=None, useNumpy=True):
+def FindHomography(srcPoints, destPoints, homographyMatrix=None, useNumpy=False):
 	if useNumpy:
 		a = srcPoints if type(srcPoints) == numpy.ndarray and srcPoints.shape[1] == 3 else numpy.array([(x,y,1) for x,y in srcPoints],dtype=numpy.float32)
 		b = destPoints if type(destPoints) == numpy.ndarray and destPoints.shape[1] == 3 else numpy.array([(x,y,1) for x,y in destPoints],dtype=numpy.float32)
@@ -113,12 +113,15 @@ def FindHomography(srcPoints, destPoints, homographyMatrix=None, useNumpy=True):
 		b = destPoints if type(destPoints) == numpy.ndarray else numpy.array(destPoints, dtype=numpy.float32)
 		if homographyMatrix is None:
 			homographyMatrix = numpy.zeros((3,3), dtype=numpy.float32) # set up homography matrix
-		cv.FindHomography(a,b,homographyMatrix,0) # find homography
+		print a
+		print b
+		cv.FindHomography(cv.fromarray(a),cv.fromarray(b),cv.fromarray(homographyMatrix),0) # find homography
 	return homographyMatrix
 def TransformPoint(point, homography):
 	a = point if type(point) == numpy.ndarray and len(a) == 3 else numpy.array((point[0],point[1],1),dtype=numpy.float32)
 	result = numpy.dot(homography,a)
 	return numpy.array((result[0]/result[2],result[1]/result[2]),dtype=numpy.float32)
+
 def GetRectifiedImage(img, points, aspectRatio, padding=0): # return a NEW, perfectly sized rectified image
 	srcPoints = numpy.array(ReorderPointsClockwise(points), dtype=numpy.float32) # reorder points: topleft, topright, bottomleft, bottomright
 	longestDim = LongestEdge(points) # figure out dimensions of image
@@ -135,6 +138,9 @@ def GetRectifiedImage(img, points, aspectRatio, padding=0): # return a NEW, perf
 		w2 = int(width + wp*2)
 		destPoints = numpy.array([[wp,hp],[w2-wp,hp],[w2-wp,h2-hp],[wp,h2-hp]], dtype=numpy.float32)
 		destImage = cv.CreateImage((w2, h2),img.depth,img.nChannels) # create dest image
+	
+	print 'src ', srcPoints
+	print 'dest ', destPoints
 	
 	homographyMatrix = FindHomography(srcPoints, destPoints)
 	WarpImage(img, homographyMatrix, destImage) # apply homography
