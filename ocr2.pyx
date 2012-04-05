@@ -105,8 +105,6 @@ cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray
 			if temp[j,i] < globalMin: globalMin = temp[j,i]
 
 	# if verbose == 1: cv.SaveImage('output/mgd-1.png', mgdValues)
-	print i, j, videoWidth, videoHeight
-	print globalMax, globalMin
 	for 0 <= i < videoWidth:
 		for 0 <= j < videoHeight:
 			if (globalMax-temp[j,i])*foregroundWeight < temp[j,i]-globalMin:
