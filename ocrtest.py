@@ -75,12 +75,33 @@ def main():
 				else:
 					stuff.mode = 0
 			elif char == 'a': # find text areas
+				imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))	
 				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 15)
 				ocr.ClearOCRTempFiles()
 		
 				# find text areas
 				stuff.boxes = ocr.FindTextAreas(imgRect, verbose=True)
+				stuff.boxes.sort(key=lambda box: (box[Y], box[X]))
+				
+				# clear out text
+				stuff.text = []
+				for b in stuff.boxes: stuff.text.append('')
+				
+			elif char == 'o': # do ocr
+				stuff.text
+				# re-rectify to clear drawn lines
+				imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))
+				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 15)
 
+				for i in range(0, len(stuff.boxes)):
+					b = stuff.boxes[i]
+					file, id = ocr.CreateTempFile(imgRect, b)
+					text = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
+					#text = ''
+					# text = self.dict.CorrectPhrase(text, verbose=True)
+					if text is not None: 
+						print 'Recognized %s' % text
+						setText(i, text)
 				
 		# show image
 		if stuff.mode == 0:
@@ -89,18 +110,31 @@ def main():
 			util.DrawPoints(imgCopy, stuff.corners, color=(255,0,0))
 			
 			for b in stuff.boxes:
-				util.DrawRect(imgRect, b, color=(0,255,0), transform=stuff.transformInv)
+				util.DrawRect(imgCopy, b, color=(0,255,0), transform=stuff.transformInv)
+			
+			for i in range(0,len(stuff.text)):
+				t = stuff.text[i]
+				b = stuff.boxes[i]
+				p = util.Transform((b[X],b[Y]), stuff.transformInv)
+				util.DrawText(imgCopy, t, p[X], p[Y], color=(0,255,0))
 			
 			cv.ShowImage(windowTitle, imgCopy)
 		elif stuff.mode == 1:
-			if imgRect is None: imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))			
-			boxes = stuff.boxes[:]
-			for b in boxes[:]:
+			imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))			
+			for b in stuff.boxes:
 				util.DrawRect(imgRect, b, color=(0,255,0))
+			
+			for i in range(0,len(stuff.text)):
+				t = stuff.text[i]
+				b = stuff.boxes[i]
+				util.DrawText(imgRect, t, b[X], b[Y], color=(0,255,0))	
 			cv.ShowImage(windowTitle, imgRect)
-
 
 	# save for later
 	pickle.dump(stuff, open('stuff.pickle', 'wb'))	
+
+def setText(index, text):
+	global stuff
+	stuff.text[index] = text
 	
 if __name__ == "__main__": main()

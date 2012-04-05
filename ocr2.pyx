@@ -119,7 +119,7 @@ cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray
 	boxes = []
 	while contour != None:
 		box = cv.BoundingRect(contour)
-		ratio = box[WIDTH]. / box[HEIGHT]
+		ratio = float(box[WIDTH]) / box[HEIGHT]
 		if ratio > boxAspectThresh and box[WIDTH] > boxMinSize and box[HEIGHT] > boxMinSize:
 			boxes.append(box)
 		contour = contour.h_next()
