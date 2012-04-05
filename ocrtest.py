@@ -4,6 +4,8 @@ from settings import *
 from util import X,Y,WIDTH,HEIGHT
 import pickle, os
 
+import multiprocessing
+
 class Stuff(object):
 	def __init__(self):
 		self.mode = 0
@@ -90,18 +92,35 @@ def main():
 			elif char == 'o': # do ocr
 				stuff.text
 				# re-rectify to clear drawn lines
+				cv.Copy(img, imgCopy)
 				imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))
+				if stuff.mode == 0: cv.ShowImage(windowTitle, imgCopy)
+				elif stuff.mode == 1: cv.ShowImage(windowTitle, imgRect)
+				cv.WaitKey(10)
 				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 15)
+
+				# clear out text
+				stuff.text = []
+				for b in stuff.boxes: stuff.text.append('')
+
+				pool = multiprocessing.Pool()
 
 				for i in range(0, len(stuff.boxes)):
 					b = stuff.boxes[i]
 					file, id = ocr.CreateTempFile(imgRect, b)
-					text = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
+					pool.apply_async(CallOCREngine, (id, ocr2.DefaultWorkingDirectory, ocr2.DefaultRecognizer, i), callback=setText)
+					
+					#text = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
 					#text = ''
 					# text = self.dict.CorrectPhrase(text, verbose=True)
-					if text is not None: 
-						print 'Recognized %s' % text
-						setText(i, text)
+					#if text is not None: 
+					#	print 'Recognized %s' % text
+					#	setText(i, text)
+				
+				#pool.close()
+				print 'about to join'
+				#pool.join()
+				print 'joined'
 				
 		# show image
 		if stuff.mode == 0:
@@ -133,8 +152,18 @@ def main():
 	# save for later
 	pickle.dump(stuff, open('stuff.pickle', 'wb'))	
 
-def setText(index, text):
+def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recognizer=ocr2.DefaultRecognizer, tag=None):
+	outputName = 'box' + str(fileID)
+	stdout = os.popen('tesseract ocrtemp/box%s.tiff ocrtemp/box%s -l eng 2> ocrtemp/scratch.txt' % (fileID, fileID)) # 2> redirects stderr to a scratch file
+	#proc = subprocess.call(['ls'], cwd=workingDirectory, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	result = open(os.path.join(workingDirectory,outputName+'.txt')).read().strip()
+	return (result, tag)
+
+def setText(result):
 	global stuff
-	stuff.text[index] = text
+	text, index = result
+	if text is not None: 
+		# print 'async recoed %s' % text
+		stuff.text[index] = text
 	
 if __name__ == "__main__": main()
