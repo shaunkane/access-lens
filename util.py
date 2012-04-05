@@ -12,10 +12,8 @@ def Enum(*sequential, **named):
 # constants for named tuples
 X = 0
 Y = 1
-WIDTH = 0
-HEIGHT = 1
-RECT_WIDTH = 2
-RECT_HEIGHT = 3
+WIDTH = 2
+HEIGHT = 3
 
 # image conversion
 def GetYCC(img, dest=None):
@@ -46,7 +44,7 @@ def GetEdge(frame, edge=None):
 # drawing
 FONT = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)
 def DrawRect(img, rect, color=(0,255,0), thickness=1):
-	points = [(rect[RECT_X],rect[RECT_Y]),(rect[RECT_X]+rect[RECT_WIDTH],rect[RECT_Y]),(rect[RECT_X]+rect[RECT_WIDTH],rect[RECT_Y]+rect[RECT_HEIGHT]),(rect[RECT_X],rect[RECT_Y]+rect[RECT_HEIGHT])]
+	points = [(rect[RECT_X],rect[RECT_Y]),(rect[RECT_X]+rect[WIDTH],rect[RECT_Y]),(rect[RECT_X]+rect[WIDTH],rect[RECT_Y]+rect[HEIGHT]),(rect[RECT_X],rect[RECT_Y]+rect[HEIGHT])]
 	DrawPolyLine(img, points, color, thickness)
 def DrawPolyLine(img, points, color=(0,255,0), thickness=1):
 	ints = [(int(p[X]),int(p[Y])) for p in points]
@@ -80,7 +78,7 @@ def FindContours(img, imgCopy=None, minLength=2, storage=None, minSize=(100,100)
 		blob = currentContour[:]
 		if len(blob) > minLength:
 			bbox = BoundingRect(blob)
-			if bbox[RECT_WIDTH] > minSize[WIDTH] and bbox[RECT_HEIGHT] > minSize[HEIGHT]:
+			if bbox[WIDTH] > minSize[WIDTH] and bbox[HEIGHT] > minSize[HEIGHT]:
 				blobs.append([b for b in blob])
 		currentContour = currentContour.h_next()
 	return blobs	
@@ -124,8 +122,8 @@ def Transform(point, homography):
 def GetRectifiedImage(img, points, aspectRatio, padding=0): # return a NEW, perfectly sized rectified image
 	srcs = numpy.array(ReordersClockwise(points), dtype=numpy.float32) # reorder points: topleft, topright, bottomleft, bottomright
 	longestDim = LongestEdge(points) # figure out dimensions of image
-	height = int(longestDim) if aspectRatio[HEIGHT] > aspectRatio[WIDTH] else int(longestDim*(aspectRatio[HEIGHT]/aspectRatio[WIDTH]))
-	width = int(longestDim) if aspectRatio[WIDTH] > aspectRatio[HEIGHT] else int(longestDim*(aspectRatio[WIDTH]/aspectRatio[HEIGHT]))
+	height = int(longestDim) if aspectRatio[Y] > aspectRatio[X] else int(longestDim*(aspectRatio[Y]/aspectRatio[X]))
+	width = int(longestDim) if aspectRatio[X] > aspectRatio[Y] else int(longestDim*(aspectRatio[X]/aspectRatio[Y]))
 
 	if padding == 0:
 		dests = numpy.array([[0,0],[width,0],[width,height],[0,height]], dtype=numpy.float32)
@@ -207,7 +205,7 @@ def BoundingRect(points): # in correct format (x,y,w,h)
 	return Rect(minX, minY, maxX-minX, maxY-minY)
 def BoundingRectArea(points):
 	rect = BoundingRect(points)
-	return rect[RECT_WIDTH]*rect[RECT_HEIGHT]
+	return rect[WIDTH]*rect[HEIGHT]
 def LongestEdge(points):
 	pShift = points[1:]+[points[0]] # shift by 1
 	return max(Distance(a,b) for a,b in zip(points,pShift))
@@ -251,5 +249,5 @@ def Distance(p1, p2):
 def InsideBoundingBox(point, shape):
 	p = point
 	bbox = BoundingRect(shape)
-	return p[X] > bbox[X] and p[X] < bbox[X]+bbox[RECT_WIDTH] and p[Y] > bbox[Y] and p[Y] < bbox[Y]+bbox[RECT_HEIGHT]
+	return p[X] > bbox[X] and p[X] < bbox[X]+bbox[WIDTH] and p[Y] > bbox[Y] and p[Y] < bbox[Y]+bbox[HEIGHT]
 # end geometry

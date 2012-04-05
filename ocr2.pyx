@@ -1,6 +1,7 @@
 import numpy, os, cv, uuid, subprocess
-from util import Rect, Point
 cimport numpy, cython
+
+from util import X,Y,WIDTH,HEIGHT
 
 class Recognizer: 
 	OCROPUS = 1
@@ -120,11 +121,13 @@ cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray
 	contour = cv.FindContours(cv.fromarray(mgdValues), storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE, (0, 0))
 	boxes = []
 	while contour != None:
-		box = Rect._make(cv.BoundingRect(contour))
+		box = cv.BoundingRect(contour)
 		print box
 		print box.width
 		print box.height
-		if box.width/box.height > boxAspectThresh and box.width > boxMinSize and box.height > boxMinSize:
+		print boxAspectThresh
+		print boxMinSize
+		if box[WIDTH]/box[HEIGHT] > boxAspectThresh and box[WIDTH] > boxMinSize and box[HEIGHT] > boxMinSize:
 			boxes.append(box)
 		contour = contour.h_next()
 	return boxes
