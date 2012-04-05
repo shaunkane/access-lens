@@ -87,7 +87,7 @@ def main():
 			#util.DrawPoints(imgCopy, betterCorners, color=(255,0,255))
 			cv.ShowImage(windowTitle, imgCopy)
 		elif stuff.mode == 1:
-			if imgRect is None: imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=Size(11,8.5))			
+			if imgRect is None: imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))			
 			for b in stuff.boxes:
 				util.DrawRect(imgRect, b, color=(0,0,255))
 			cv.ShowImage(windowTitle, imgRect)
