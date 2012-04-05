@@ -44,7 +44,7 @@ def GetEdge(frame, edge=None):
 # drawing
 FONT = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)
 def DrawRect(img, rect, color=(0,255,0), thickness=1):
-	points = [(rect[RECT_X],rect[RECT_Y]),(rect[RECT_X]+rect[WIDTH],rect[RECT_Y]),(rect[RECT_X]+rect[WIDTH],rect[RECT_Y]+rect[HEIGHT]),(rect[RECT_X],rect[RECT_Y]+rect[HEIGHT])]
+	points = [(rect[X],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]+rect[HEIGHT]),(rect[X],rect[Y]+rect[HEIGHT])]
 	DrawPolyLine(img, points, color, thickness)
 def DrawPolyLine(img, points, color=(0,255,0), thickness=1):
 	ints = [(int(p[X]),int(p[Y])) for p in points]
@@ -52,7 +52,7 @@ def DrawPolyLine(img, points, color=(0,255,0), thickness=1):
 def DrawPoints(img, points, color=(0,255,0), thickness=1, border=5, colors = None):
 	for i in xrange(0, len(points)):
 		if colors is not None: color = colors[i % len(colors)]
-		Draw(img, points[i], border=border, thickness=thickness, color=color)
+		DrawPoint(img, points[i], border=border, thickness=thickness, color=color)
 
 def Centroid(points):
 	sumX = float(sum([p[0] for p in points]))
@@ -62,7 +62,7 @@ def Centroid(points):
 
 def DrawText(img, text, x, y, color=(0,255,0), offset=10): # draw labeled boxes on image. good for showing OCR results eh
 	cv.PutText(img, text, (x, int(y+offset)), FONT, color)
-def Draw(img, point, border=5, thickness=1, color=(255,0,255)):
+def DrawPoint(img, point, border=5, thickness=1, color=(255,0,255)):
 	rect = [(point[X]-border, point[Y]-border), (point[X]+border, point[Y]-border),
 			(point[X]+border, point[Y]+border), (point[X]-border, point[Y]+border)]
 	DrawPolyLine(img, rect, color, thickness)
