@@ -49,7 +49,7 @@ def DrawRect(img, rect, color=(0,255,0), thickness=1):
 def DrawPolyLine(img, points, color=(0,255,0), thickness=1):
 	ints = [(int(p[X]),int(p[Y])) for p in points]
 	cv.PolyLine(img, [ints], thickness, color)
-def Draws(img, points, color=(0,255,0), thickness=1, border=5, colors = None):
+def DrawPoints(img, points, color=(0,255,0), thickness=1, border=5, colors = None):
 	for i in xrange(0, len(points)):
 		if colors is not None: color = colors[i % len(colors)]
 		Draw(img, points[i], border=border, thickness=thickness, color=color)
