@@ -13,6 +13,8 @@ ocropusPath = '/usr/local/bin/ocropus'
 DefaultTesseractArgs = '-l eng' # or 'letters'
 DefaultWorkingDirectory = './ocrtemp/'
 DefaultRecognizer = Recognizer.TESSERACT
+DefaultFileType = 'png'
+
 
 # cloud ocr
 from poster.encode import multipart_encode
@@ -56,26 +58,26 @@ class OCRManager(object): # manage OCR for a single set of images
 	def CreateTempFile(self, cvImage, box):
 		fileID = self.boxID
 		self.boxID += 1
-		imageName = 'box%d.tiff' % fileID
+		imageName = 'box%d.%s' % (fileID, DefaultFileType)
 		cv.SetImageROI(cvImage, box)
 		cv.SaveImage(os.path.join(DefaultWorkingDirectory,imageName), cvImage)
 		cv.ResetImageROI(cvImage)
 		return imageName, fileID
 
-	def CallOCREngine(self, fileID, workingDirectory=DefaultWorkingDirectory, recognizer=DefaultRecognizer):
+	def CallOCREngine(self, fileID, workingDirectory=DefaultWorkingDirectory, recognizer=DefaultRecognizer, tag=None):
 		if recognizer == Recognizer.CLOUD:
 			pass
 		elif recognizer == Recognizer.OCROPUS:
 			outputName = str(fileID) + '.txt'
-			proc = subprocess.Popen('ocropus page box%s.tiff > %s' % (fileID,outputName), cwd=workingDirectory, shell=True)
+			proc = subprocess.Popen('ocropus page box%s.%s > %s' % (fileID,DefaultFileType,outputName), cwd=workingDirectory, shell=True)
 			return outputName, proc
 		elif recognizer == Recognizer.TESSERACT:
 			outputName = 'box' + str(fileID)
-			proc = subprocess.Popen('tesseract box%s.tiff %s -l eng' % (fileID,outputName), cwd=workingDirectory, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			proc = subprocess.Popen('tesseract box%s.%s %s -l eng' % (fileID,DefaultFileType,outputName), cwd=workingDirectory, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			proc.wait()
-			return open(os.path.join(DefaultWorkingDirectory,outputName+'.txt')).read().strip()
+			return (open(os.path.join(DefaultWorkingDirectory,outputName+'.txt')).read().strip(), tag)
 	
-	def ClearOCRTempFiles(self, workingDirectory=DefaultWorkingDirectory, fileTypes = ['txt','tiff']):
+	def ClearOCRTempFiles(self, workingDirectory=DefaultWorkingDirectory, fileTypes = ['txt','tiff','png']):
 		for fname in os.listdir(workingDirectory):
 			if fname.partition('.')[2] in fileTypes:
 				os.unlink(os.path.join(workingDirectory, fname))
