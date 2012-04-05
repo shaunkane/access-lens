@@ -47,7 +47,8 @@ def DrawRect(img, rect, color=(0,255,0), thickness=1, transform=None):
 	points = [(rect[X],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]+rect[HEIGHT]),(rect[X],rect[Y]+rect[HEIGHT])]
 	DrawPolyLine(img, points, color, thickness, transform)
 def DrawPolyLine(img, points, color=(0,255,0), thickness=1, transform=None):
-	ints = [(int(p[X]),int(p[Y])) for p in points]
+	#ints = [(int(p[X]),int(p[Y])) for p in points]
+	ints = points[:]
 	if transform is not None:
 		ints = [(int(Transform(p[X], transform)),int(Transform(p[Y], transform))) for p in ints]
 	cv.PolyLine(img, [ints], thickness, color)

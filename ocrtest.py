@@ -10,6 +10,8 @@ class Stuff(object):
 		self.corners = []
 		self.boxes = []
 		self.text = []
+		self.transform = None
+		self.transformInv = None
 
 def DoOCR(rectified, dict):
 	try:
@@ -68,11 +70,12 @@ def main():
 			if char == 'r': # find text areas
 				if stuff.mode == 0 and len(stuff.corners) == 4:
 					stuff.mode = 1
-					imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))
+					imgRect, stuff.transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))
+					stuff.transformInv = numpy.linalg.inv(stuff.transform)
 				else:
 					stuff.mode = 0
 			elif char == 'a': # find text areas
-				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = DilateSteps, windowSize = WindowSize, boxMinSize = 15)
+				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 15)
 				ocr.ClearOCRTempFiles()
 		
 				# find text areas
@@ -84,12 +87,16 @@ def main():
 			cv.Copy(img, imgCopy)	
 			#betterCorners = cv.FindCornerSubPix(imgGray, corners, (20,20), (-1,-1), (cv.CV_TERMCRIT_ITER,10,0))
 			util.DrawPoints(imgCopy, stuff.corners, color=(255,0,0))
-			#util.DrawPoints(imgCopy, betterCorners, color=(255,0,255))
+			
+			for b in stuff.boxes:
+				util.DrawRect(imgRect, b, color=(0,255,0), transform=stuff.transformInv)
+			
 			cv.ShowImage(windowTitle, imgCopy)
 		elif stuff.mode == 1:
 			if imgRect is None: imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))			
-			for b in stuff.boxes:
-				util.DrawRect(imgRect, b, color=(0,0,255))
+			boxes = stuff.boxes[:]
+			for b in boxes[:]:
+				util.DrawRect(imgRect, b, color=(0,255,0))
 			cv.ShowImage(windowTitle, imgRect)
 
 

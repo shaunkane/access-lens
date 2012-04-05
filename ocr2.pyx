@@ -84,7 +84,6 @@ class OCRManager(object): # manage OCR for a single set of images
 @cython.wraparound(False)
 @cython.cdivision(True)
 cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray[numpy.int16_t, ndim=2] temp, numpy.ndarray[numpy.uint8_t, ndim=2] mgdValues, int videoWidth, int videoHeight, float boxAspectThresh, int boxMinSize, int windowSize, float expand, float foregroundWeight, int dilateSteps, int verbose):
-	print mgdValues
 	cdef int start, end, maxVal, minVal, globalMax, globalMin, i, j, k
 	globalMax = -1000000 # hacky but should be fine
 	globalMin = 1000000
@@ -120,7 +119,8 @@ cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray
 	boxes = []
 	while contour != None:
 		box = cv.BoundingRect(contour)
-		if box[WIDTH]/box[HEIGHT] > boxAspectThresh and box[WIDTH] > boxMinSize and box[HEIGHT] > boxMinSize:
+		ratio = box[WIDTH]. / box[HEIGHT]
+		if ratio > boxAspectThresh and box[WIDTH] > boxMinSize and box[HEIGHT] > boxMinSize:
 			boxes.append(box)
 		contour = contour.h_next()
 	return boxes
