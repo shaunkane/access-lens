@@ -68,7 +68,7 @@ def main():
 			if char == 'r': # find text areas
 				if stuff.mode == 0 and len(stuff.corners) == 4:
 					stuff.mode = 1
-					imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=Size(11,8.5))
+					imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))
 				else:
 					stuff.mode = 0
 			elif char == 'a': # find text areas
