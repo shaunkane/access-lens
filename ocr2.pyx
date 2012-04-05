@@ -5,6 +5,7 @@ cimport numpy, cython
 class Recognizer: 
 	OCROPUS = 1
 	TESSERACT = 2
+	CLOUD = 3
 
 tesseractPath = '/usr/local/bin/tesseract' # Name of executable to be called at command line
 ocropusPath = '/usr/local/bin/ocropus'
@@ -12,8 +13,20 @@ DefaultTesseractArgs = '-l eng' # or 'letters'
 DefaultWorkingDirectory = './ocrtemp/'
 DefaultRecognizer = Recognizer.TESSERACT
 
+# cloud ocr
+from poster.encode import multipart_encode
+from poster.streaminghttp import register_openers
+import urllib2
+cloudURL = 'http://umbc-cloud.appspot.com/upload'
+register_openers()
+
+# send to the cloud, and wait until the response appears
+# save the 
+def DoCloudOCR(filename):
+	
+
 class OCRManager(object): # manage OCR for a single set of images
-	def __init__(self, width, height, boxAspectThresh = 0, boxMinSize = 30, windowSize = 12, expand = .01, foregroundWeight = 0.3, dilateSteps = 5, laplaceLevel = 3):
+	def __init__(self, width, height, boxAspectThresh = 0, boxMinSize = 30, windowSize = 12, expand = .01, foregroundWeight = 0.3, dilateSteps = 5, laplaceLevel = 3, useCloud = False):
 		self.width = width
 		self.height = height
 		
@@ -49,8 +62,9 @@ class OCRManager(object): # manage OCR for a single set of images
 		return imageName, fileID
 
 	def CallOCREngine(self, fileID, workingDirectory=DefaultWorkingDirectory, recognizer=DefaultRecognizer):
-		assert recognizer in (Recognizer.OCROPUS, Recognizer.TESSERACT), "Invalid recognizer specified"
-		if recognizer == Recognizer.OCROPUS:
+		if recognizer == Recognizer.CLOUD:
+			
+		elif recognizer == Recognizer.OCROPUS:
 			outputName = str(fileID) + '.txt'
 			proc = subprocess.Popen('ocropus page box%s.tiff > %s' % (fileID,outputName), cwd=workingDirectory, shell=True)
 			return outputName, proc
