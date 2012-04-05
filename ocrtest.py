@@ -1,8 +1,15 @@
-import cv, numpy, sys, json, math
+import cv, numpy, sys, pickle, math
 import ocr2, util, bg2, camera, gui, hand2, dict
 from settings import *
-from util import Point, Size
-import cPickle as pickle, os
+from util import X,Y,WIDTH,HEIGHT
+import pickle, os
+
+class Stuff(object):
+	def __init__(self):
+		self.mode = 0
+		self.corners = []
+		self.boxes = []
+		self.text = []
 
 def DoOCR(rectified, dict):
 	try:
@@ -23,19 +30,18 @@ def DoOCR(rectified, dict):
 	except Exception, err:
 		print 'Could not rectify image: %s' % err
 
-corners = []
-mode = 0
+stuff = Stuff()
 	
 def onMouse(event, x, y, flags, param):
-	global corners
-	if mode == 0 and event == cv.CV_EVENT_LBUTTONDOWN:
-		if len(corners) > 3: corners = []
-		corners.append(Point(x,y))
+	global stuff
+	if stuff.mode == 0 and event == cv.CV_EVENT_LBUTTONDOWN:
+		if len(stuff.corners) > 3: stuff.corners = []
+		stuff.corners.append((x,y))
 		print 'Added corner (%d,%d)' % (x,y)
 	
 def main():
-	global mode, corners
-	if os.path.exists('area.pickle'): corners = pickle.load(open('area.pickle', 'rb'))
+	global stuff
+	if os.path.exists('stuff.pickle'): stuff = pickle.load(open('stuff.pickle', 'rb'))
 	
 	windowTitle = 'ocrTestWindow'
 	img = cv.LoadImage(sys.argv[1])
@@ -59,25 +65,35 @@ def main():
 		# handle keys
 		if key != -1:
 			char = chr(key)
-			if char == 'r':
-				if mode == 0 and len(corners) == 4:
-					mode = 1
-					imgRect, transform = util.GetRectifiedImage(img, corners, aspectRatio=Size(11,8.5))
+			if char == 'r': # find text areas
+				if stuff.mode == 0 and len(stuff.corners) == 4:
+					stuff.mode = 1
+					imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=Size(11,8.5))
 				else:
-					mode = 0
+					stuff.mode = 0
+			elif char == 'a': # find text areas
+				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = DilateSteps, windowSize = WindowSize, boxMinSize = 15)
+				ocr.ClearOCRTempFiles()
 		
+				# find text areas
+				stuff.boxes = ocr.FindTextAreas(imgRect, verbose=True)
+
+				
 		# show image
-		if mode == 0:
+		if stuff.mode == 0:
 			cv.Copy(img, imgCopy)	
-			betterCorners = cv.FindCornerSubPix(imgGray, corners, (20,20), (-1,-1), (cv.CV_TERMCRIT_ITER,10,0))
-			betterCorners = [Point._make(p) for p in betterCorners]
-			util.DrawPoints(imgCopy, corners, color=(255,0,0))
-			# util.DrawPoints(imgCopy, betterCorners, color=(255,0,255))
+			#betterCorners = cv.FindCornerSubPix(imgGray, corners, (20,20), (-1,-1), (cv.CV_TERMCRIT_ITER,10,0))
+			util.DrawPoints(imgCopy, stuff.corners, color=(255,0,0))
+			#util.DrawPoints(imgCopy, betterCorners, color=(255,0,255))
 			cv.ShowImage(windowTitle, imgCopy)
-		elif mode == 1:
+		elif stuff.mode == 1:
+			if imgRect is None: imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=Size(11,8.5))			
+			for b in stuff.boxes:
+				util.DrawRect(imgRect, b, color=(0,0,255))
 			cv.ShowImage(windowTitle, imgRect)
 
-	output = open('area.pickle', 'wb')
-	pickle.dump(corners, output)	
+
+	# save for later
+	pickle.dump(stuff, open('stuff.pickle', 'wb'))	
 	
 if __name__ == "__main__": main()
