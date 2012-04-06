@@ -191,9 +191,10 @@ def setText(result):
 	global stuff
 	text, index = result
 	if text is not None: 
+		print 'recognized %s (%d/%d)' % (text, len(stuff.text)-stuff.ocrItemsRemaining+1, len(stuff.text))
+
 		if text == '*': stuff.text[index] = None
 		else:
-			print 'recognized %s (%d/%d)' % (text, len(stuff.text)-stuff.ocrItemsRemaining+1, len(stuff.text))
 			# print 'async recoed %s' % text
 			stuff.text[index] = text
 		stuff.ocrItemsRemaining -= 1
