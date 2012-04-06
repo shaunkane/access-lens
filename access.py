@@ -1,7 +1,7 @@
 import cv, numpy, sys, json, math, collections, traceback
 import ocr2, util, bg2, camera, gui, hand2, dict, speechManager, tracker
 from settings import *
-from util import Enum, X, Y, WIDTH, HEIGHT
+from util import Enum,X,Y,WIDTH,HEIGHT
 
 CameraModes = Enum('BG','Skin','Edge','TrainBG','Default', 'Rectified','FindBox')
 TextArea = collections.namedtuple('TextArea', 'text box')
@@ -81,9 +81,9 @@ class DioptraWindow(gui.GUIWindow):
 		if rotate in (0,180): 
 			small = sizeSmall; half = sizeHalf; large = sizeLarge
 		else: 
-			small = (sizeSmall.height,sizeSmall.width)
-			half = (sizeHalf.height,sizeHalf.width)
-			large =(sizeLarge.height,sizeLarge.width)
+			small = Size(sizeSmall.height,sizeSmall.width)
+			half = Size(sizeHalf.height,sizeHalf.width)
+			large = Size(sizeLarge.height,sizeLarge.width)
 
 		# we need 2 BG models here because of weird camera FOV stuff
 		self.bgModelSmall = bg2.BackgroundModel(small.width, small.height, yThreshold=20, fitThreshold=16, yccMode=0)
@@ -155,7 +155,7 @@ class DioptraWindow(gui.GUIWindow):
 			rectified, transform = util.GetRectifiedImage(frameBig, betterCorners, 
 														  aspectRatio=aspectRatio)
 			cv.SaveImage('output/rectified.png',rectified)
-			return rectified, (rectified.width, rectified.height)
+			return rectified, Size(rectified.width, rectified.height)
 
 	# create the transforms self.tCamToDoc and self.tDocToCam
 	def UpdateTransforms(self, imgSize=None, frame=None):
@@ -165,7 +165,7 @@ class DioptraWindow(gui.GUIWindow):
 			rect = util.GetSize(camCorners)
 			aspectRatio = util.GuessAspectRatio(rect.width, rect.height, options=AspectRatios)
 			rectified, transform = util.GetRectifiedImage(frame, camCorners, aspectRatio=aspectRatio)
-			imgSize = (rectified.width, rectified.height)
+			imgSize = Size(rectified.width, rectified.height)
 			
 		docCorners = [(0,0),(imgSize.width,0),(imgSize.width,imgSize.height),(0,imgSize.height)]
 		self.tCamToDoc = util.FindHomography(camCorners, docCorners)

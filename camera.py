@@ -10,8 +10,8 @@ class Camera(object):
 		self.scratchImages = {}
 	
 	def SetSize(self,size):
-		self.width = size.width
-		self.height = size.height
+		self.width = size[WIDTH]
+		self.height = size[HEIGHT]
 		cv.SetCaptureProperty(self.cam, cv.CV_CAP_PROP_FRAME_WIDTH, self.width)
 		cv.SetCaptureProperty(self.cam, cv.CV_CAP_PROP_FRAME_HEIGHT, self.height)
 		# throw these out
