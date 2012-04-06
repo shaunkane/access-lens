@@ -1,4 +1,5 @@
 import cv, numpy, util
+from util import X,Y,WIDTH,HEIGHT
 
 class Camera(object):
 	def __init__(self, size, camIndex=1, scale=1, rotate=0):
@@ -10,8 +11,8 @@ class Camera(object):
 		self.scratchImages = {}
 	
 	def SetSize(self,size):
-		self.width = size[WIDTH]
-		self.height = size[HEIGHT]
+		self.width = size[X]
+		self.height = size[Y]
 		cv.SetCaptureProperty(self.cam, cv.CV_CAP_PROP_FRAME_WIDTH, self.width)
 		cv.SetCaptureProperty(self.cam, cv.CV_CAP_PROP_FRAME_HEIGHT, self.height)
 		# throw these out
