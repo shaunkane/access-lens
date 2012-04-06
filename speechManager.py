@@ -1,4 +1,4 @@
-import subprocess, multiprocessing 
+import subprocess, multiprocessing, os
 # if windows, we use multiprocessing and the speech api. else we use subprocess.
 if os.name == 'nt': import speech
 
