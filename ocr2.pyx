@@ -41,7 +41,6 @@ class OCRManager(object): # manage OCR for a single set of images
 		self.foregroundWeight = foregroundWeight
 		self.dilateSteps = dilateSteps
 		self.laplaceLevel = laplaceLevel
-		self.boxID = 0
 		
 		# scratch images
 		self.gray = cv.CreateImage((width,height),cv.IPL_DEPTH_8U,1) 
@@ -55,7 +54,7 @@ class OCRManager(object): # manage OCR for a single set of images
 		cv.Laplace(self.gray, self.laplace, self.laplaceLevel)
 		return _FindTextAreas(numpy.asarray(cv.GetMat(self.laplace)), self.tempMGD, numpy.asarray(cv.GetMat(self.mgdValues)), self.width, self.height, self.boxAspectThresh, self.boxMinSize, self.windowSize, self.expand, self.foregroundWeight, self.dilateSteps, (1 if verbose else 0))
 
-	def CreateTempFile(self, cvImage, box):
+	def CreateTempFile(self, cvImage, boxRect, boxID):
 		fileID = self.boxID
 		self.boxID += 1
 		imageName = 'box%d.%s' % (fileID, DefaultFileType)

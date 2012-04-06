@@ -3,7 +3,7 @@ import ocr2, util, bg2, camera, gui, hand2, dict
 from settings import *
 from util import X,Y,WIDTH,HEIGHT
 import pickle, os
-import multiprocessing
+import multiprocessing, subprocess
 import time
 
 class Stuff(object):
@@ -15,24 +15,24 @@ class Stuff(object):
 		self.transform = None
 		self.transformInv = None
 
-def DoOCR(rectified, dict):
-	try:
-		ocr = ocr2.OCRManager(rectified.width, rectified.height, boxAspectThresh = 0, dilateSteps = 5)
-		ocr.ClearOCRTempFiles()
-		boxes = ocr.FindTextAreas(rectified, verbose=True)
-		for box in boxes:
-			file, id = ocr.CreateTempFile(rectified, box)
-			uncorrected = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
-			corrected = dict.CorrectPhrase(uncorrected)
-			box2 = [(box.x,box.y),(box.x+box.width,box.y),(box.x+box.width,box.y+box.height),(box.x,box.y+box.height)]
-			util.DrawPolyLine(rectified, box2)
-			cv.SaveImage('output/textboxes.png',rectified)
-			print '----'
-			print 'uncorrected: %s' % uncorrected
-			print 'corrected: %s' % corrected
-			
-	except Exception, err:
-		print 'Could not rectify image: %s' % err
+# def DoOCR(rectified, dict):
+# 	try:
+# 		ocr = ocr2.OCRManager(rectified.width, rectified.height, boxAspectThresh = 0, dilateSteps = 5)
+# 		ocr.ClearOCRTempFiles()
+# 		boxes = ocr.FindTextAreas(rectified, verbose=True)
+# 		for box in boxes:
+# 			file, id = ocr.CreateTempFile(rectified, box)
+# 			uncorrected = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
+# 			corrected = dict.CorrectPhrase(uncorrected)
+# 			box2 = [(box.x,box.y),(box.x+box.width,box.y),(box.x+box.width,box.y+box.height),(box.x,box.y+box.height)]
+# 			util.DrawPolyLine(rectified, box2)
+# 			cv.SaveImage('output/textboxes.png',rectified)
+# 			print '----'
+# 			print 'uncorrected: %s' % uncorrected
+# 			print 'corrected: %s' % corrected
+# 			
+# 	except Exception, err:
+# 		print 'Could not rectify image: %s' % err
 
 stuff = Stuff()
 	
@@ -46,8 +46,6 @@ def onMouse(event, x, y, flags, param):
 def main():
 	global stuff
 	if os.path.exists('stuff.pickle'): stuff = pickle.load(open('stuff.pickle', 'rb'))
-	
-	sessionID = int(time.time())
 	
 	windowTitle = 'ocrTestWindow'
 	img = cv.LoadImage(sys.argv[1])
@@ -85,33 +83,29 @@ def main():
 		
 				# find text areas
 				stuff.boxes = ocr.FindTextAreas(imgRect, verbose=True)
-				stuff.boxes.sort(key=lambda box: (box[Y], box[X]))
-				
-				# clear out text
-				stuff.text = []
-				for b in stuff.boxes: stuff.text.append('')
+				#stuff.boxes.sort(key=lambda box: (box[Y], box[X]))
 				
 			elif char == 'o': # do ocr
-				stuff.text
+				sessionID = int(time.time())
 				# re-rectify to clear drawn lines
 				cv.Copy(img, imgCopy)
 				imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))
 				if stuff.mode == 0: cv.ShowImage(windowTitle, imgCopy)
 				elif stuff.mode == 1: cv.ShowImage(windowTitle, imgRect)
+				
 				cv.WaitKey(10)
 				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 30)
 
 				# clear out text
 				stuff.text = []
-				for b in stuff.boxes: stuff.text.append('')
 
-				pool = multiprocessing.Pool(100)
+				filenames = ['ocrtemp/box%d.png' % i for i in range(0, len(stuff.boxes))]
 
-				for i in range(0, len(stuff.boxes)):
-					b = stuff.boxes[i]
-					file, id = ocr.CreateTempFile(imgRect, b)
+				for boxIndex in range(0, len(stuff.boxes)):
+					box = stuff.boxes[boxIndex]
+					fname = ocr.CreateTempFile(imgRect, box, boxIndex)
+
 					#pool.apply_async(CallOCREngine, (id, ocr2.DefaultWorkingDirectory, ocr2.DefaultRecognizer, i), callback=setText)
-					pool.apply_async(CloudOCR, (id, i, sessionID), callback=setText)
 					
 					#text = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
 					#text = ''
@@ -119,6 +113,17 @@ def main():
 					#if text is not None: 
 					#	print 'Recognized %s' % text
 					#	setText(i, text)
+				
+				print 'uploading'
+				cloudKeys = CloudUpload(sessionID, filenames)
+				print 'uploaded'
+
+				cloudKeys = cloudKeys.split(',')
+				# setting up pool
+				pool = multiprocessing.Pool(50)
+				
+				for boxIndex in range(0, len(stuff.boxes))
+					pool.apply_async(CloudOCR,(boxIndex, cloudKeys[i]),callback=setText)
 				
 				#pool.close()
 				print 'about to join'
@@ -138,7 +143,7 @@ def main():
 				t = stuff.text[i]
 				b = stuff.boxes[i]
 				p = util.Transform((b[X],b[Y]), stuff.transformInv)
-				util.DrawText(imgCopy, t, p[X], p[Y], color=(0,255,0))
+				util.DrawText(imgCopy, t, p[X], p[Y], color=(0,0,0))
 			
 			cv.ShowImage(windowTitle, imgCopy)
 		elif stuff.mode == 1:
@@ -149,14 +154,25 @@ def main():
 			for i in range(0,len(stuff.text)):
 				t = stuff.text[i]
 				b = stuff.boxes[i]
-				util.DrawText(imgRect, t, b[X], b[Y], color=(0,255,0))	
+				util.DrawText(imgRect, t, b[X], b[Y], color=(0,0,0))	
 			cv.ShowImage(windowTitle, imgRect)
 
 	# save for later
 	pickle.dump(stuff, open('stuff.pickle', 'wb'))	
 
-def CloudOCR(fileID, boxID, sessionID):
-	os.system('python getCloudOcr.py ocrtemp/box%d.png %d 1> ocrtemp/box%d.txt 2> ocrtemp/box%derror.txt' % (fileID,sessionID,fileID,fileID))
+def ResetCloudOCR():
+	os.system('pkill -f getCloudOcr.py')
+
+def CloudUpload(sessionID, filenames):
+	cmd = 'python uploadCloudOcr.py %d %s > ocrtemp/cloudkeys.txt' % (sessionID, ' '.join(filenames))
+	print 'Executing command %s' % cmd
+	os.system(cmd)
+	print 'Done'
+	result = open('ocrtemp/cloudkeys.txt').read().strip()
+	return result
+	
+def CloudOCR(boxIndex, cloudKey):
+	os.system('python getCloudOcr.py %s 2> ocrtemp/box%derror.txt' % (cloudKey))
 	result = open('ocrtemp/box%d.txt' % (fileID)).read().strip()
 	# now, wait for an OCR result
 	return (result, boxID)
