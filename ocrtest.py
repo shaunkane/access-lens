@@ -3,8 +3,8 @@ import ocr2, util, bg2, camera, gui, hand2, dict
 from settings import *
 from util import X,Y,WIDTH,HEIGHT
 import pickle, os
-
 import multiprocessing
+import time
 
 class Stuff(object):
 	def __init__(self):
@@ -47,6 +47,8 @@ def main():
 	global stuff
 	if os.path.exists('stuff.pickle'): stuff = pickle.load(open('stuff.pickle', 'rb'))
 	
+	sessionID = int(time.time())
+	
 	windowTitle = 'ocrTestWindow'
 	img = cv.LoadImage(sys.argv[1])
 	imgCopy = cv.CreateImage((img.width, img.height), img.depth, img.nChannels)
@@ -78,7 +80,7 @@ def main():
 					stuff.mode = 0
 			elif char == 'a': # find text areas
 				imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))	
-				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 15)
+				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = 1.5, dilateSteps = 3, windowSize = 4, boxMinSize = 15)
 				ocr.ClearOCRTempFiles()
 		
 				# find text areas
@@ -97,18 +99,19 @@ def main():
 				if stuff.mode == 0: cv.ShowImage(windowTitle, imgCopy)
 				elif stuff.mode == 1: cv.ShowImage(windowTitle, imgRect)
 				cv.WaitKey(10)
-				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 15)
+				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 30)
 
 				# clear out text
 				stuff.text = []
 				for b in stuff.boxes: stuff.text.append('')
 
-				pool = multiprocessing.Pool()
+				pool = multiprocessing.Pool(100)
 
 				for i in range(0, len(stuff.boxes)):
 					b = stuff.boxes[i]
 					file, id = ocr.CreateTempFile(imgRect, b)
-					pool.apply_async(CallOCREngine, (id, ocr2.DefaultWorkingDirectory, ocr2.DefaultRecognizer, i), callback=setText)
+					#pool.apply_async(CallOCREngine, (id, ocr2.DefaultWorkingDirectory, ocr2.DefaultRecognizer, i), callback=setText)
+					pool.apply_async(CloudOCR, (id, i, sessionID), callback=setText)
 					
 					#text = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
 					#text = ''
@@ -152,9 +155,15 @@ def main():
 	# save for later
 	pickle.dump(stuff, open('stuff.pickle', 'wb'))	
 
+def CloudOCR(fileID, boxID, sessionID):
+	os.system('python getCloudOcr.py ocrtemp/box%d.png %d 1> ocrtemp/box%d.txt 2> ocrtemp/box%derror.txt' % (fileID,sessionID,fileID,fileID))
+	result = open('ocrtemp/box%d.txt' % (fileID)).read().strip()
+	# now, wait for an OCR result
+	return (result, boxID)
+	
 def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recognizer=ocr2.DefaultRecognizer, tag=None):
 	outputName = 'box' + str(fileID)
-	stdout = os.popen('tesseract ocrtemp/box%s.tiff ocrtemp/box%s -l eng 2> ocrtemp/scratch.txt' % (fileID, fileID)) # 2> redirects stderr to a scratch file
+	stdout = os.system('tesseract ocrtemp/box%s.tiff ocrtemp/box%s -l eng 2> ocrtemp/scratch.txt' % (fileID, fileID)) # 2> redirects stderr to a scratch file
 	#proc = subprocess.call(['ls'], cwd=workingDirectory, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	result = open(os.path.join(workingDirectory,outputName+'.txt')).read().strip()
 	return (result, tag)
