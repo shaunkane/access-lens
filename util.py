@@ -209,7 +209,7 @@ def BoundingRect(points): # in correct format (x,y,w,h)
 	maxX = max(p[X] for p in points)
 	minY = min(p[Y] for p in points)
 	maxY = max(p[Y] for p in points)
-	return Rect(minX, minY, maxX-minX, maxY-minY)
+	return (minX, minY, maxX-minX, maxY-minY)
 def BoundingRectArea(points):
 	rect = BoundingRect(points)
 	return rect[WIDTH]*rect[HEIGHT]
