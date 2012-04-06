@@ -85,7 +85,7 @@ def FindContours(img, imgCopy=None, minLength=2, storage=None, minSize=(100,100)
 		blob = currentContour[:]
 		if len(blob) > minLength:
 			bbox = BoundingRect(blob)
-			if bbox[WIDTH] > minSize[WIDTH] and bbox[HEIGHT] > minSize[HEIGHT]:
+			if bbox[WIDTH] > minSize[X] and bbox[HEIGHT] > minSize[Y]:
 				blobs.append([b for b in blob])
 		currentContour = currentContour.h_next()
 	return blobs	
