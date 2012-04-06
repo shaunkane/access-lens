@@ -14,6 +14,7 @@ class Stuff(object):
 		self.text = []
 		self.transform = None
 		self.transformInv = None
+		self.ocrItemsRemaining = 0
 
 # def DoOCR(rectified, dict):
 # 	try:
@@ -97,7 +98,7 @@ def main():
 				ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = BoxAspectThresh, dilateSteps = 3, windowSize = 4, boxMinSize = 30)
 
 				# clear out text
-				stuff.text = []
+				stuff.text = [''] * len(stuff.boxes)
 
 				filenames = ['ocrtemp/box%d.png' % i for i in range(0, len(stuff.boxes))]
 
@@ -114,21 +115,23 @@ def main():
 					#	print 'Recognized %s' % text
 					#	setText(i, text)
 				
-				print 'uploading'
+				print 'uploading images'
 				cloudKeys = CloudUpload(sessionID, filenames)
-				print 'uploaded'
+				print 'images uploaded'
 
+				stuff.ocrItemsRemaining = len(stuff.boxes)
+				
 				cloudKeys = cloudKeys.split(',')
 				# setting up pool
 				pool = multiprocessing.Pool(50)
 				
-				for boxIndex in range(0, len(stuff.boxes))
-					pool.apply_async(CloudOCR,(boxIndex, cloudKeys[i]),callback=setText)
-				
+				ResetCloudOCR()
+				print 'sending images to mturk'
+				for boxIndex in range(0, len(stuff.boxes)):
+					pool.apply_async(CloudOCR,(boxIndex, cloudKeys[boxIndex]), callback=setText)
+				print 'done'				
 				#pool.close()
-				print 'about to join'
 				#pool.join()
-				print 'joined'
 				
 		# show image
 		if stuff.mode == 0:
@@ -136,25 +139,25 @@ def main():
 			#betterCorners = cv.FindCornerSubPix(imgGray, corners, (20,20), (-1,-1), (cv.CV_TERMCRIT_ITER,10,0))
 			util.DrawPoints(imgCopy, stuff.corners, color=(255,0,0))
 			
-			for b in stuff.boxes:
-				util.DrawRect(imgCopy, b, color=(0,255,0), transform=stuff.transformInv)
-			
-			for i in range(0,len(stuff.text)):
+			for i in range(0,len(stuff.boxes)):
 				t = stuff.text[i]
-				b = stuff.boxes[i]
-				p = util.Transform((b[X],b[Y]), stuff.transformInv)
-				util.DrawText(imgCopy, t, p[X], p[Y], color=(0,0,0))
+				if t is not None:
+					b = stuff.boxes[i]
+					util.DrawRect(imgCopy, b, color=(0,255,0), transform=stuff.transformInv)
+					if t != '': 
+						util.DrawText(imgCopy, t, p[X], p[Y], color=(0,255,0))
+						p = util.Transform((b[X],b[Y]), stuff.transformInv)
 			
 			cv.ShowImage(windowTitle, imgCopy)
 		elif stuff.mode == 1:
 			imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio=(11,8.5))			
-			for b in stuff.boxes:
-				util.DrawRect(imgRect, b, color=(0,255,0))
 			
-			for i in range(0,len(stuff.text)):
+			for i in range(0,len(stuff.boxes)):
 				t = stuff.text[i]
-				b = stuff.boxes[i]
-				util.DrawText(imgRect, t, b[X], b[Y], color=(0,0,0))	
+				if t is not None:
+					b = stuff.boxes[i]
+					util.DrawRect(imgRect, b, color=(0,255,0))
+					if t != '': util.DrawText(imgRect, t, b[X], b[Y], color=(0,255,0))	
 			cv.ShowImage(windowTitle, imgRect)
 
 	# save for later
@@ -165,17 +168,17 @@ def ResetCloudOCR():
 
 def CloudUpload(sessionID, filenames):
 	cmd = 'python uploadCloudOcr.py %d %s > ocrtemp/cloudkeys.txt' % (sessionID, ' '.join(filenames))
-	print 'Executing command %s' % cmd
+	#print 'Executing command %s' % cmd
 	os.system(cmd)
-	print 'Done'
+	#print 'Done'
 	result = open('ocrtemp/cloudkeys.txt').read().strip()
 	return result
 	
 def CloudOCR(boxIndex, cloudKey):
-	os.system('python getCloudOcr.py %s 2> ocrtemp/box%derror.txt' % (cloudKey))
-	result = open('ocrtemp/box%d.txt' % (fileID)).read().strip()
-	# now, wait for an OCR result
-	return (result, boxID)
+	os.system('python getCloudOcr.py %s 1> ocrtemp/box%d.txt 2> ocrtemp/box%derror.txt' % (cloudKey,boxIndex,boxIndex))
+	result = open('ocrtemp/box%d.txt' % (boxIndex)).read().strip()
+	print 'result %s' % result
+	return (result, boxIndex)
 	
 def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recognizer=ocr2.DefaultRecognizer, tag=None):
 	outputName = 'box' + str(fileID)
@@ -186,9 +189,15 @@ def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recogni
 
 def setText(result):
 	global stuff
+	print 'callback!', result
 	text, index = result
 	if text is not None: 
-		# print 'async recoed %s' % text
-		stuff.text[index] = text
-	
+		if text == '*': stuff.text[index] = None
+		else:
+			print 'got %s' % text
+			# print 'async recoed %s' % text
+			stuff.text[index] = text
+		stuff.ocrItemsRemaining -= 1
+		if stuff.ocrItemsRemaining == 0:
+			print 'BOOM! Recognized all text'
 if __name__ == "__main__": main()
