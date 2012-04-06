@@ -29,7 +29,7 @@ register_openers()
 datagen, headers = multipart_encode({"file": open(fname, "rb"),"sessionID":sessionID})
 
 # Create the Request object
-request = urllib2.Request(url, datagen, headers)
+request = urllib2.Request('http://localhost:8081/upload?sessionID=%d' % sessionID, datagen, headers)
 # Get the key
 key = urllib2.urlopen(request).read()
 
