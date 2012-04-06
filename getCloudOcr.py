@@ -10,7 +10,7 @@ import time
 url = 'http://localhost:8081/upload'
 
 
-if len(sys.argv) != 2:
+if len(sys.argv) != 3:
 	print 'Syntax: python post.py [filename] [sessionID]'
 	sys.exit()
 
