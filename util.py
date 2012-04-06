@@ -42,7 +42,7 @@ def GetEdge(frame, edge=None):
 # end image conversion
 
 # drawing
-FONT = cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, 1, 1, 0, 1, 8)
+FONT = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)
 def DrawRect(img, rect, color=(0,255,0), thickness=1, transform=None):
 	points = [(rect[X],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]+rect[HEIGHT]),(rect[X],rect[Y]+rect[HEIGHT])]
 	DrawPolyLine(img, points, color, thickness, transform)

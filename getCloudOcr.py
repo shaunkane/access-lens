@@ -10,12 +10,11 @@ baseUrl = 'http://umbc-cloud.appspot.com'
 #baseUrl = 'http://localhost:8081'
 
 
-if len(sys.argv) != 3:
-	print 'Syntax: python post.py [filename] [cloudKey]'
+if len(sys.argv) != 2:
+	print 'Syntax: python post.py [cloudKey]'
 	sys.exit()
 
-fname = sys.argv[1]
-cloudKey = sys.argv[2]
+cloudKey = sys.argv[1]
 
 # Register the streaming http handlers with urllib2
 register_openers()
