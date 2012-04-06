@@ -55,7 +55,7 @@ class OCRManager(object): # manage OCR for a single set of images
 		return _FindTextAreas(numpy.asarray(cv.GetMat(self.laplace)), self.tempMGD, numpy.asarray(cv.GetMat(self.mgdValues)), self.width, self.height, self.boxAspectThresh, self.boxMinSize, self.windowSize, self.expand, self.foregroundWeight, self.dilateSteps, (1 if verbose else 0))
 
 	def CreateTempFile(self, cvImage, boxRect, boxID):
-		imageName = 'box%d.%s' % (fileID, DefaultFileType)
+		imageName = 'box%d.%s' % (boxID, DefaultFileType)
 		cv.SetImageROI(cvImage, boxRect)
 		cv.SaveImage(os.path.join(DefaultWorkingDirectory,imageName), cvImage)
 		cv.ResetImageROI(cvImage)
