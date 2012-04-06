@@ -81,13 +81,13 @@ class DioptraWindow(gui.GUIWindow):
 		if rotate in (0,180): 
 			small = sizeSmall; half = sizeHalf; large = sizeLarge
 		else: 
-			small = Size(sizeSmall.height,sizeSmall.width)
-			half = Size(sizeHalf.height,sizeHalf.width)
-			large = Size(sizeLarge.height,sizeLarge.width)
+			small = (sizeSmall[Y],sizeSmall[X])
+			half = (sizeHalf[Y],sizeHalf[X])
+			large =(sizeLarge[Y],sizeLarge[X])
 
 		# we need 2 BG models here because of weird camera FOV stuff
-		self.bgModelSmall = bg2.BackgroundModel(small.width, small.height, yThreshold=20, fitThreshold=16, yccMode=0)
-		self.bgModelHalf = bg2.BackgroundModel(half.width, half.height, yThreshold=20, fitThreshold=16, yccMode=0)
+		self.bgModelSmall = bg2.BackgroundModel(small[X], small[Y], yThreshold=20, fitThreshold=16, yccMode=0)
+		self.bgModelHalf = bg2.BackgroundModel(half[X], half[Y], yThreshold=20, fitThreshold=16, yccMode=0)
 		
 		# scratch images
 		self.bgSmall = cv.CreateImage(small,cv.IPL_DEPTH_8U,1)
@@ -155,7 +155,7 @@ class DioptraWindow(gui.GUIWindow):
 			rectified, transform = util.GetRectifiedImage(frameBig, betterCorners, 
 														  aspectRatio=aspectRatio)
 			cv.SaveImage('output/rectified.png',rectified)
-			return rectified, Size(rectified.width, rectified.height)
+			return rectified, (rectified.width, rectified.height)
 
 	# create the transforms self.tCamToDoc and self.tDocToCam
 	def UpdateTransforms(self, imgSize=None, frame=None):
@@ -165,7 +165,7 @@ class DioptraWindow(gui.GUIWindow):
 			rect = util.GetSize(camCorners)
 			aspectRatio = util.GuessAspectRatio(rect.width, rect.height, options=AspectRatios)
 			rectified, transform = util.GetRectifiedImage(frame, camCorners, aspectRatio=aspectRatio)
-			imgSize = Size(rectified.width, rectified.height)
+			imgSize = (rectified.width, rectified.height)
 			
 		docCorners = [(0,0),(imgSize.width,0),(imgSize.width,imgSize.height),(0,imgSize.height)]
 		self.tCamToDoc = util.FindHomography(camCorners, docCorners)
@@ -541,9 +541,9 @@ x - speech recognition (using recognized phrases)
 			#we are tracking by dividing the 1, 0 and 0, 1 moments by the area 
 			x = cv.GetSpatialMoment(moments, 1, 0)/area 
 			y = cv.GetSpatialMoment(moments, 0, 1)/area 
-			return hand2.Gesture.UNKNOWN, Point(x,y)
+			return hand2.Gesture.UNKNOWN, (x,y)
 		else:
-			return hand2.Gesture.NONE, Point(-1,-1)
+			return hand2.Gesture.NONE, (-1,-1)
 			
 	### this is where the magic happens, when we're tracking
 	def TrackHand(self, frame, ycc, skin, bg, bgModel):
