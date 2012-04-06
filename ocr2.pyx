@@ -52,8 +52,15 @@ class OCRManager(object): # manage OCR for a single set of images
 		cv.Zero(self.mgdValues)
 		cv.CvtColor(frame, self.gray, cv.CV_BGR2GRAY)
 		cv.Laplace(self.gray, self.laplace, self.laplaceLevel)
-		return _FindTextAreas(numpy.asarray(cv.GetMat(self.laplace)), self.tempMGD, numpy.asarray(cv.GetMat(self.mgdValues)), self.width, self.height, self.boxAspectThresh, self.boxMinSize, self.windowSize, self.expand, self.foregroundWeight, self.dilateSteps, (1 if verbose else 0))
-
+		boxes = _FindTextAreas(numpy.asarray(cv.GetMat(self.laplace)), self.tempMGD, numpy.asarray(cv.GetMat(self.mgdValues)), self.width, self.height, self.boxAspectThresh, self.boxMinSize, self.windowSize, self.expand, self.foregroundWeight, self.dilateSteps, (1 if verbose else 0))
+		boxes2 = []
+		for box in boxes:
+			ratio = float(box[WIDTH]) / box[HEIGHT]
+			if ratio > boxAspectThresh and box[WIDTH] > boxMinSize and box[HEIGHT] > boxMinSize:
+				boxes2.append(box)
+		return boxes2
+	
+		
 	def CreateTempFile(self, cvImage, boxRect, boxID):
 		imageName = 'box%d.%s' % (boxID, DefaultFileType)
 		cv.SetImageROI(cvImage, boxRect)
@@ -118,8 +125,6 @@ cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray
 	boxes = []
 	while contour != None:
 		box = cv.BoundingRect(contour)
-		ratio = float(box[WIDTH]) / box[HEIGHT]
-		if ratio > boxAspectThresh and box[WIDTH] > boxMinSize and box[HEIGHT] > boxMinSize:
-			boxes.append(box)
+		boxes.append(box)
 		contour = contour.h_next()
 	return boxes

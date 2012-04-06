@@ -43,19 +43,40 @@ def GetEdge(frame, edge=None):
 
 # drawing
 FONT = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)
+def RectToPoly(rect): # turn a rect into a poly representation
+	return [(rect[X],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]+rect[HEIGHT]),(rect[X],rect[Y]+rect[HEIGHT])]
+	
+def TransformPoly(poly, trans):
+	transPoly = []
+	for p in poly:
+		tPoint = Transform(p, trans)
+		transPoly.append(tPoint)
+	return transPoly
+	
 def DrawRect(img, rect, color=(0,255,0), thickness=1, transform=None):
-	points = [(rect[X],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]),(rect[X]+rect[WIDTH],rect[Y]+rect[HEIGHT]),(rect[X],rect[Y]+rect[HEIGHT])]
-	DrawPolyLine(img, points, color, thickness, transform)
+	poly = RectToPoly(rect)
+	DrawPolyLine(img, poly, color, thickness, transform)
+
+def PointInsideRect(point, rect):
+	return point[0] > rect[0] and point[0] < rect[0]+rect[2] and point[1] > rect[1] and point[1] < rect[1]+rect[3]
+	
 def DrawPolyLine(img, points, color=(0,255,0), thickness=1, transform=None):
-	ints = [(int(p[X]),int(p[Y])) for p in points]
-	#ints = points[:]
-	if transform is not None:
-		ints = []
-		for p in points:
-			tPoint = Transform(p, transform)
-			ints.append((int(tPoint[X]),int(tPoint[Y])))
-		# ints = [(int(Transform(p[X], transform)),int(Transform(p[Y], transform))) for p in ints]
-	cv.PolyLine(img, [ints], thickness, color)
+	#ints = [(int(p[X]),int(p[Y])) for p in points]
+	ints = []
+	try:
+		for i in range(0, len(points)):
+			p = points[i]
+			intPoint = ((int(p[0])),(int(p[1])))
+			ints.append(intPoint)
+		if transform is not None:
+			ints = []
+			for p in points:
+				tPoint = Transform(p, transform)
+				ints.append((int(tPoint[X]),int(tPoint[Y])))
+			# ints = [(int(Transform(p[X], transform)),int(Transform(p[Y], transform))) for p in ints]
+		cv.PolyLine(img, [ints], thickness, color)
+	except Exception as e:
+		print "Can't draw shape for some reason: %s" % e
 def DrawPoints(img, points, color=(0,255,0), thickness=1, border=5, colors = None):
 	for i in xrange(0, len(points)):
 		if colors is not None: color = colors[i % len(colors)]

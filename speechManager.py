@@ -24,13 +24,12 @@ class SpeechManager(object):
 		try:
 			print 'Speaking: %s' % text
 			if os.name == 'nt':
-				proc = multiprocessing.Process(target=lambda x: speech.say(x), args=(text,))	
-				proc.start()			
+				proc = subprocess.Popen('python say.py "%s"' % text,shell=True)	
 				# speech.say(text)
 			else:
 				proc = subprocess.Popen('say "%s"' % text,shell=True)
 			self.speechProcesses.append(proc)
-		except e:
+		except Exception as e:
 			print "Failed to speak: %s" % e
 			
 	def StopSpeaking(self):
