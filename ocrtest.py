@@ -129,7 +129,7 @@ def main():
 				print 'sending images to mturk'
 				for boxIndex in range(0, len(stuff.boxes)):
 					pool.apply_async(CloudOCR,(boxIndex, cloudKeys[boxIndex]), callback=setText)
-				print 'done'				
+				print 'done. %d items to recognize' % stuff.ocrItemsRemaining		
 				#pool.close()
 				#pool.join()
 				
@@ -145,8 +145,9 @@ def main():
 					b = stuff.boxes[i]
 					util.DrawRect(imgCopy, b, color=(0,255,0), transform=stuff.transformInv)
 					if t != '': 
-						util.DrawText(imgCopy, t, p[X], p[Y], color=(0,255,0))
 						p = util.Transform((b[X],b[Y]), stuff.transformInv)
+						util.DrawText(imgCopy, t, p[X], p[Y], color=(0,255,0))
+
 			
 			cv.ShowImage(windowTitle, imgCopy)
 		elif stuff.mode == 1:
@@ -177,7 +178,6 @@ def CloudUpload(sessionID, filenames):
 def CloudOCR(boxIndex, cloudKey):
 	os.system('python getCloudOcr.py %s 1> ocrtemp/box%d.txt 2> ocrtemp/box%derror.txt' % (cloudKey,boxIndex,boxIndex))
 	result = open('ocrtemp/box%d.txt' % (boxIndex)).read().strip()
-	print 'result %s' % result
 	return (result, boxIndex)
 	
 def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recognizer=ocr2.DefaultRecognizer, tag=None):
@@ -189,12 +189,11 @@ def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recogni
 
 def setText(result):
 	global stuff
-	print 'callback!', result
 	text, index = result
 	if text is not None: 
 		if text == '*': stuff.text[index] = None
 		else:
-			print 'got %s' % text
+			print 'recognized %s (%d/%d)' % (text, len(stuff.text)-stuff.ocrItemsRemaining+1, len(stuff.text))
 			# print 'async recoed %s' % text
 			stuff.text[index] = text
 		stuff.ocrItemsRemaining -= 1
