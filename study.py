@@ -11,7 +11,7 @@ from studyHelper import *
 windowTitle = 'ocrTestWindow'
 pickleFile = 'temp.pickle'
 saveToFile = False
-smallRez = (320,240)
+smallRez = (640,480)
 bigRez = (1280,960)
 vidDepth = 8
 rotate = -90
