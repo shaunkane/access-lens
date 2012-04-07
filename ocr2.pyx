@@ -53,10 +53,11 @@ class OCRManager(object): # manage OCR for a single set of images
 		cv.CvtColor(frame, self.gray, cv.CV_BGR2GRAY)
 		cv.Laplace(self.gray, self.laplace, self.laplaceLevel)
 		boxes = _FindTextAreas(numpy.asarray(cv.GetMat(self.laplace)), self.tempMGD, numpy.asarray(cv.GetMat(self.mgdValues)), self.width, self.height, self.boxAspectThresh, self.boxMinSize, self.windowSize, self.expand, self.foregroundWeight, self.dilateSteps, (1 if verbose else 0))
+		return boxes
 		boxes2 = []
 		for box in boxes:
 			ratio = float(box[WIDTH]) / box[HEIGHT]
-			if ratio > boxAspectThresh and box[WIDTH] > boxMinSize and box[HEIGHT] > boxMinSize:
+			if ratio > self.boxAspectThresh and box[WIDTH] > self.boxMinSize and box[HEIGHT] > self.boxMinSize and box[WIDTH]*box[HEIGHT] > self.boxMinSize*3:
 				boxes2.append(box)
 		return boxes2
 	

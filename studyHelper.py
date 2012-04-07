@@ -15,6 +15,11 @@ useFakeOcr = False
 FakeOcrFile = 'seattle.txt'
 useThimble = True
 
+# ocr stuff
+boxAspectThresh = 1.5
+dilateSteps = 3
+windowSize = 4
+boxMinSize = 25
 
 class Stuff(object):
 	def __init__(self):
@@ -59,14 +64,8 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgHSV, imgRect, counter, stuff,
 		accumulator += 1
 		if accumulator == threshold:
 			accumulator = 0
-			FindTextAreas(imgCopy, imgRect, stuff, aspectRatio)
-			b2 = []
-			print stuff.boxes
-			print type(stuff.boxes)
-			for b in stuff.boxes:
-				if b[2] > 20 and b[3] > 20: b2.append(b)
-			stuff.boxes = b2
-			stuff.boxes = [b for b in stuff.boxes if b[2]*b[3] > 45]
+			stuff.boxes = FindTextAreas(imgCopy, imgRect, stuff.corners, aspectRatio)
+			
 	elif len(stuff.boxes) > 0 and len(stuff.text) == 0: # do ocr here
 		accumulator += 1
 		if accumulator == threshold:
@@ -249,13 +248,16 @@ def CreateTransform(stuff, imgCopy, imgRect, aspectRatio):
 
 
 
-def FindTextAreas(imgCopy, imgRect, stuff, aspectRatio):
+def FindTextAreas(imgCopy, imgRect, corners, aspectRatio):
 	speech.Say('Finding text areas')
-	imgRect, transform = util.GetRectifiedImage(imgCopy, stuff.corners, aspectRatio)	
-	ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = 1.5, dilateSteps = 3, windowSize = 4, boxMinSize = 25)
+	imgRect, transform = util.GetRectifiedImage(imgCopy, corners, aspectRatio)	
+	ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = boxAspectThresh, dilateSteps = dilateSteps, windowSize = windowSize, boxMinSize = boxMinSize)
 	#ocr.ClearOCRTempFiles()
 
-	stuff.boxes = ocr.FindTextAreas(imgRect, verbose=True)
+	boxes = ocr.FindTextAreas(imgRect, verbose=True)
+	for b in boxes:
+		print b
+	return boxes
 
 def ResetCloudOCR():
 	os.system('pkill -f getCloudOcr.py')
