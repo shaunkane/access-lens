@@ -11,20 +11,41 @@ from studyHelper import *
 windowTitle = 'ocrTestWindow'
 pickleFile = 'temp.pickle'
 saveToFile = False
-vidWidth = 640
-vidHeight = 480
+smallRez = (320,240)
+bigRez = (1280,960)
 vidDepth = 8
 rotate = -90
 processInput = True # we can turn off handleframe
 
 stuff = studyHelper.Stuff()
 
-img = cv.CreateImage((vidHeight, vidWidth), vidDepth, 3)
-imgCopy = cv.CreateImage((vidHeight, vidWidth), vidDepth, 3)
-imgGray = cv.CreateImage((vidHeight, vidWidth), vidDepth, 1)
-imgEdge = cv.CreateImage((vidHeight, vidWidth), vidDepth, 1)
-imgHSV = cv.CreateImage((vidHeight, vidWidth), vidDepth, 1)
+img = cv.CreateImage(smallRez, vidDepth, 3)
+imgCopy = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 3)
+imgGray = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
+imgEdge = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
 imgRect = None
+
+usingBigRez = False
+def ToggleResolution():
+		global usingBigRez, imgCopy, imgGray, imgEdge, camera
+		newWidth = 0
+		newHeight = 0
+		if usingBigRez:
+			usingBigRez = False
+			newWidth = smallRez[X]
+			newHeight = smallRez[Y]
+		else:
+			usingBigRez = True
+			newWidth = bigRez[X]
+			newHeight = bigRez[Y]
+		
+		camera = cv.CaptureFromCAM(0)
+		cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, newWidth)
+		cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_HEIGHT, newHeight)
+		
+		imgCopy = cv.CreateImage((newHeight, newWidth), vidDepth, 3)
+		imgGray = cv.CreateImage((newHeight, newWidth), vidDepth, 1)
+		imgEdge = cv.CreateImage((newHeight, newWidth), vidDepth, 1)
 
 def HandleKey(key):
 	char = chr(key)
@@ -33,24 +54,19 @@ def HandleKey(key):
 			CreateTransform(stuff, imgCopy, imgRect, aspectRatio)
 			stuff.mode = 1
 		else: stuff.mode = 0
+	elif char == 'b':
+		ToggleResolution()
+
+camera = None
 		
 def main():
-	global stuff
+	global camera, stuff
 	if os.path.exists(pickleFile): stuff = pickle.load(open(pickleFile, 'rb'))
 	camera = cv.CaptureFromCAM(0)
-	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, vidWidth)
-	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_HEIGHT, vidHeight)
+	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, smallRez[X])
+	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_HEIGHT, smallRez[Y])
 	
 	cv.NamedWindow(windowTitle, 1) 
-	
-	# let camera warm up
-	img = cv.QueryFrame(camera)
-	while img.width != vidWidth or img.height != vidHeight:
-		img = cv.QueryFrame(camera)
-		cv.ShowImage(windowTitle, img)
-		cv.WaitKey(10)
-	
-
 	counter = 0
 	
 	while True:
@@ -60,7 +76,7 @@ def main():
 				
 		img = cv.QueryFrame(camera)
 		util.RotateImage(img, imgCopy, rotate)
-		if processInput: HandleFrame(img, imgCopy, imgGray, imgEdge, imgHSV, imgRect, counter, stuff, aspectRatio)
+		if processInput: HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, counter, stuff, aspectRatio)
 		DrawWindow(img, imgCopy, imgRect, stuff, windowTitle)
 		counter += 1
 

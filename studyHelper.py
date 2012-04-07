@@ -45,7 +45,7 @@ overlayMode = OverlayMode.NONE
 drewOverlays = False
 handInView = False
 
-def HandleFrame(img, imgCopy, imgGray, imgEdge, imgHSV, imgRect, counter, stuff, aspectRatio):
+def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, counter, stuff, aspectRatio):
 	global drewOverlays
 	global accumulator
 	# first thing's first. try to find a rectangle
@@ -85,7 +85,6 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgHSV, imgRect, counter, stuff,
 
 	elif len(stuff.text) > 0 and len(stuff.text) == len(stuff.boxes) and not drewOverlays:
 		# draw our overlays here
-		global drewOverlays
 		drewOverlays = True
 		
 		if overlayMode == OverlayMode.NONE: pass
@@ -166,7 +165,7 @@ def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recogni
 	print 'result ', result
 	return (result, boxIndex)		
 		
-def DoClOCR():
+def DoCloudOCR():
 	sessionID = int(time.time())
 	# re-rectify to clear drawn lines
 	cv.Copy(img, imgCopy)
@@ -255,13 +254,11 @@ def FindTextAreas(imgCopy, imgRect, corners, aspectRatio):
 	#ocr.ClearOCRTempFiles()
 
 	boxes = ocr.FindTextAreas(imgRect, verbose=True)
-	for b in boxes:
-		print b
 	return boxes
 
 def ResetCloudOCR():
 	os.system('pkill -f getCloudOcr.py')
-
+		
 def CloudUpload(sessionID, filenames):
 	cmd = 'python uploadCloudOcr.py %d %s > ocrtemp/cloudkeys.txt' % (sessionID, ' '.join(filenames))
 	#print 'Executing command %s' % cmd
