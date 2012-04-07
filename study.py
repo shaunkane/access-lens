@@ -15,7 +15,7 @@ smallRez = (320,240)
 bigRez = (1280,960)
 vidDepth = 8
 rotate = -90
-processInput = True # we can turn off handleframe
+processInput = False # we can turn off handleframe
 
 stuff = studyHelper.Stuff()
 
@@ -56,7 +56,11 @@ def HandleKey(key):
 		else: stuff.mode = 0
 	elif char == 'b':
 		ToggleResolution()
-
+	elif char == 'p':
+		global processInput
+		processInput = not processInput
+		print 'Processing input? %s' % processInput
+		
 camera = None
 		
 def main():
