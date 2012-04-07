@@ -7,5 +7,5 @@ setup(
 	name = "accesscam",
     cmdclass = {'build_ext': build_ext},
 	include_dirs = [numpy.get_include()],
-    ext_modules = [Extension("bg2", ["bg2.pyx"]),Extension("ocr2", ["ocr2.pyx"]), Extension("hand2", ["hand2.pyx"])]
+    ext_modules = [Extension("bg2", ["bg2.pyx"], extra_compile_args = ['-m32']),Extension("ocr2", ["ocr2.pyx"], extra_compile_args = ['-m32']), Extension("hand2", ["hand2.pyx"], extra_compile_args = ['-m32'])]
 )
