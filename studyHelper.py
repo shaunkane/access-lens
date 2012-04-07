@@ -11,7 +11,7 @@ speech = speechManager.SpeechManager()
 useCloudOcr = False
 aspectRatio = (8.5,11)
 
-useFakeOcr = True
+useFakeOcr = False
 FakeOcrFile = 'seattle.txt'
 useThimble = True
 
@@ -41,6 +41,7 @@ drewOverlays = False
 handInView = False
 
 def HandleFrame(img, imgCopy, imgGray, imgEdge, imgHSV, imgRect, counter, stuff, aspectRatio):
+	global drewOverlays
 	global accumulator
 	# first thing's first. try to find a rectangle
 	if len(stuff.corners) < 4:
@@ -57,16 +58,15 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgHSV, imgRect, counter, stuff,
 	elif len(stuff.corners) == 4 and len(stuff.boxes) == 0:
 		accumulator += 1
 		if accumulator == threshold:
-			try:
-				accumulator = 0
-				FindTextAreas(imgCopy, imgRect, stuff, aspectRatio)
-				b2 = []
-				for b in stuff.boxes:
-					if b[2] > 20 and b[3] > 20: b2.append(b)
-				#stuff.boxes = b2
-				stuff.boxes = [b for b in stuff.boxes if b[2]*b[3] > 45]
-			except:
-				import pdb; pdb.set_trace()
+			accumulator = 0
+			FindTextAreas(imgCopy, imgRect, stuff, aspectRatio)
+			b2 = []
+			print stuff.boxes
+			print type(stuff.boxes)
+			for b in stuff.boxes:
+				if b[2] > 20 and b[3] > 20: b2.append(b)
+			stuff.boxes = b2
+			stuff.boxes = [b for b in stuff.boxes if b[2]*b[3] > 45]
 	elif len(stuff.boxes) > 0 and len(stuff.text) == 0: # do ocr here
 		accumulator += 1
 		if accumulator == threshold:
@@ -110,7 +110,7 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgHSV, imgRect, counter, stuff,
 		if len(touchedAreas) > 0:
 			oldTouched = touched
 			touched = stuff.boxes.index(touchedAreas[0])
-			if (oldTouched is None or oldTouched != touched) and stuff.text[touched] is not None and len(stuff.text[touched]) > 5: speech.Say(stuff.text[touched]) # say it 
+			if (oldTouched is None or oldTouched != touched) and len(stuff.text) > touched and stuff.text[touched] is not None and len(stuff.text[touched]) > 5: speech.Say(stuff.text[touched]) # say it 
 		else: touched = None
 		
 		

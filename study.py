@@ -9,10 +9,10 @@ import studyHelper
 from studyHelper import *
 
 windowTitle = 'ocrTestWindow'
-pickleFile = 'temp.json'
-saveToFile = True
-vidWidth = 960
-vidHeight = 720
+pickleFile = 'temp.pickle'
+saveToFile = False
+vidWidth = 640
+vidHeight = 480
 vidDepth = 8
 rotate = -90
 processInput = True # we can turn off handleframe
