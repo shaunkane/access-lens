@@ -1,6 +1,5 @@
 import subprocess, multiprocessing, os
-# if windows, we use multiprocessing and the speech api. else we use subprocess.
-if os.name == 'nt': import speech
+# if windows, we use espeak: http://espeak.sourceforge.net
 
 class SpeechManager(object):
 	def __init__(self, useQueue = True):
@@ -11,8 +10,7 @@ class SpeechManager(object):
 	
 	def IsSpeaking(self):
 		self.speechProcesses = []
-		if os.name == 'nt': self.speechProcesses = [p for p in self.speechProcesses if p.poll() is None]
-		else: self.speechProcesses = [p for p in self.speechProcesses if p.is_alive()]
+		self.speechProcesses = [p for p in self.speechProcesses if p.poll() is None]
 		return len(self.speechProcesses) > 0
 	
 	def Beep(self):
@@ -24,8 +22,7 @@ class SpeechManager(object):
 		try:
 			print 'Speaking: %s' % text
 			if os.name == 'nt':
-				proc = subprocess.Popen('python say.py "%s"' % text,shell=True)	
-				# speech.say(text)
+				proc = subprocess.Popen('"C:\Program Files (x86)\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)	
 			else:
 				proc = subprocess.Popen('say "%s"' % text,shell=True)
 			self.speechProcesses.append(proc)
@@ -34,8 +31,7 @@ class SpeechManager(object):
 			
 	def StopSpeaking(self):
 		for p in self.speechProcesses:
-			if os.name == 'nt': p.kill()
-			else: p.terminate()
+			p.terminate()
 		self.speechProcesses = []
 		self.queue = []
 	
