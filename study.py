@@ -61,6 +61,9 @@ stuff = Stuff()
 bgModel = None
 boxesToRecognize = {}
 
+rectWidth = 0
+rectHeight = 0
+
 # capture big, medium, small images
 def CaptureImages():
 	global bigImage, mediumImage, smallImage, newImageToProcess, bgModel
@@ -96,13 +99,13 @@ def CaptureImages():
 	size = smallRez if rotate == 0 else (smallRez[1],smallRez[0])
 	bgModel = bg2.BackgroundModel(size[0], size[1], yThreshold=20, fitThreshold=16, yccMode=0)
 	
-	trainImages = 10
+	trainImages = 30
 	logging.debug('Training background')
 	for i in range(0, trainImages):
 		smFrame = cv.QueryFrame(camera)
 		smallImage = util.RotateImage(smFrame, None, rotate)
-		bg2.FindBackground(smFrame, imgBG, bgModel)
-	
+		bg2.FindBackground(smallImage, imgFG, bgModel)
+	logging.debug('Background training complete')
 	newImageToProcess = True
 
 # get text areas and start OCR
@@ -136,6 +139,9 @@ def ProcessImage():
 		mediumRect, bigTrans, bigInv = CreateTransform(bigCorners, mediumImage, aspectRatio)
 		# now do it with the small one
 		imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
+		global rectWidth, rectHeight
+		rectWidth = imgRect.width
+		rectHeight = imgRect.height
 		
 		#speech.Say('Locating text')
 		bigBoxes = FindTextAreas(mediumImage, mediumRect, bigCorners, aspectRatio)
@@ -150,11 +156,11 @@ def ProcessImage():
 		
 			global boxesToComplete
 			boxesToComplete = {}
-			for i in range(0, len(stuff.boxes):
+			for i in range(0, len(stuff.boxes)):
 				boxesToComplete[i] = True
 		
 			speech.Say('Starting OCR', block=True)
-			if not useCloudOCR: DoOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
+			if not useCloudOcr: DoOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
 			else: DoCloudOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
 			
 			while len(boxesToComplete.keys()) > 0:
@@ -164,9 +170,10 @@ def ProcessImage():
 			speech.Say('OCR complete', block=True)
 			
 			# add overlays
-			if overlayMode == OverlayMode.EDGE or overlayMode == OverlayMode.EDGE_PLUS_SEARCH:
-				docWidth = imgRect.width
-				docHeight = imgRect.height
+			if overlayMode == OverlayMode.EDGE or overlayMode == OverlayMode.EDGE_PLUS_SEARCH and len(stuff.text.keys()) > 0:
+				
+				docWidth = rectWidth
+				docHeight = rectHeight
 				overlayWidth = docWidth*.2
 				overlayHeight = float(docHeight) / len(stuff.text.keys())
 				overlayX = docWidth - overlayWidth/2
@@ -183,11 +190,11 @@ def ProcessImage():
 				for text in overlayTexts:
 					rect = [overlayX, y, overlayWidth, overlayHeight]
 					y += overlayHeight
-					stuff.overlays[rect] = overlayLookup[text]
+					stuff.overlays[overlayLookup[text]] = rect
 			
 			if overlayMode == OverlayMode.SEARCH or overlayMode == OverlayMode.EDGE_PLUS_SEARCH: 
-				docWidth = imgRect.width
-				docHeight = imgRect.height
+				docWidth = rectWidth
+				docHeight = rectHeight
 				overlayWidth = docWidth*.2
 				overlayX = -overlayWidth/2
 				overlayY = docHeight - overlayWidth/2
@@ -202,7 +209,7 @@ accumulator = 0
 documentOnTable = False
 touched = None
 touchCounter = 0
-touchLimit = 90
+touchLimit = 10
 def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff):
 	global accumulator
 	global bigImage, mediumImage, smallImage 
@@ -244,33 +251,34 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 		global touched, touchCounter, touchLimit
 		stuff.finger = GetCursor(imgCopy, imgHSV, imgFinger)
 		
-		doc = [0,0,imgRect.width,imgRect.height]
+		doc = [0,0,rectWidth,rectHeight]
 		
 		fingerTrans = util.Transform(stuff.finger, stuff.transform)
 		
 		# what are we touching? overlay, search button, in paper, item
 		fingerHandled = False
 		
-		for overlay in stuff.overlays.keys():
-			if not fingerHandled and util.PointInsideRect(stuff.finger, overlay):
+		for id in stuff.overlays.keys():
+			overlay = stuff.overlays[id]
+			if not fingerHandled and util.PointInsideRect(fingerTrans, overlay):
 				fingerHandled = True
 				if touched is None or touched != overlay:
 					# new, say it
-					whatToSay = stuff.text[stuff.overlays[overlay]].split(' ')[0:1] # first 1 words
+					whatToSay = stuff.text[id].split(' ')[0] # first 1 words
 					speech.Say('Shortcut %s.' % whatToSay)
 					touched = overlay
 					touchCounter = 0
 				else: # dwell 
 					touchCounter += 1
 					if touchCounter == touchLimit: # start tracking
-						tracking = stuff.overlays[overlay]
-						stuff.Say('Finding %s' % stuff.text[stuff.overlays[overlay]])
+						tracking = id
+						speech.Say('Finding %s' % stuff.text[id])
 		# search button
-		if not fingerHandled and util.PointInsideRect(stuff.finger, searchButton):
+		if not fingerHandled and util.PointInsideRect(fingerTrans, stuff.searchButton):
 			fingerHandled = True
-			if touched is None or touched != searchButton:
+			if touched is None or touched != stuff.searchButton:
 				speech.Say('Search')
-				touched = searchButton
+				touched = stuff.searchButton
 				touchCounter = 0
 			else: #dwell
 				touchCounter += 1
@@ -283,37 +291,48 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 							text = stuff.text[key]
 							if text.startswith(command): # found it
 								tracking = key
-								stuff.Say('Finding %s' % stuff.text[key])
+								speech.Say('Finding %s' % stuff.text[key])
 								break
 		# inside an item?
 		for box in stuff.boxes:
-			if not fingerHandled and util.PointInsideRect(stuff.finger, box):
+			if not fingerHandled and util.PointInsideRect(fingerTrans, box):
 				fingerHandled = True
 				touchCounter = 0
 				if touched is None or touched != box:
-					speech.Say(self.texts[stuff.boxes.index(box)])
+					speech.Say(stuff.text[stuff.boxes.index(box)])
 					touched = box
 					
-		# otherwise, if inside page, find the nearest page
-		if not fingerHandled and util.PointInsideRect(stuff.finger, doc):
+		# otherwise, if inside page, find the nearest rect
+		if not fingerHandled and util.PointInsideRect(fingerTrans, doc):
 			# get the center of each rect, which is the closest?
-			centers = [(p[0]+p[2]/2,p[1]+p[3]/2) for p in stuff.boxes]
-			closestBox = centers.index(min(centers, key=lambda c: util.Distance(c, stuff.finger)))
-			box = stuff.boxes[closestBox]
+			validBoxes = []
+			for i in range(0, len(stuff.boxes)):
+				if stuff.text.has_key(i): validBoxes.append(stuff.boxes[i])
+			centers = [(p[0]+p[2]/2,p[1]+p[3]/2) for p in validBoxes]
+			closestBox = centers.index(min(centers, key=lambda c: util.Distance(c, fingerTrans)))
+			box = validBoxes[closestBox]
 			fingerHandled = True
 			touchCounter = 0
 			if touched is None or touched != box:
-				speech.Say(self.texts[stuff.boxes.index(box)])
+				speech.Say(stuff.text[stuff.boxes.index(box)])
 				touched = box
-							
-		if not fingerHandled: touchCounter = 0
+		elif not fingerHandled: 
+			touchCounter = 0
+			touched = None
+		if not fingerHandled: 
+			touched=None
+			touchCounter = 0
 	elif tracking is not None: # tracking
+		stuff.finger = GetCursor(imgCopy, imgHSV, imgFinger)
+		doc = [0,0,rectWidth,rectHeight]
+		fingerTrans = util.Transform(stuff.finger, stuff.transform)
+	
 		# tracking is a box index
 		box = stuff.boxes[tracking]
 		trackPoint = [box[0]+box[2]/2,box[1]+box[3]/2]
 		
-		dx = trackPoint[0] - stuff.finger[0]
-		dy = trackPoint[1] - stuff.finger[1]
+		dx = trackPoint[0] - fingerTrans[0]
+		dy = trackPoint[1] - fingerTrans[1]
 		
 		# get dir
 		direction = ''
@@ -324,11 +343,11 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 			if dy > 0: direction = 'down'
 			else: direction = 'up'
 	
-		inside = util.PointInsideRect(stuff.finger, box)
+		inside = util.PointInsideRect(fingerTrans, box)
 		if inside:
 			speech.Say('Located %s' % stuff.text[tracking])
-			tracking = False
-		elif not speech.IsSpeaking():
+			tracking = None
+		elif counter % 10 == 0:
 			speech.Say(direction)
 	
 # modified from http://www.davidhampgonsalves.com/2011/05/OpenCV-Python-Color-Based-Object-Tracking
@@ -402,7 +421,7 @@ def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recogni
 # load textareas, ocr stuff, into the current calibration data
 def LoadCheat(cheatFile):
 	global stuff
-	cheat = pickle.load(stuff, open(cheatFile, 'rb'))
+	cheat = pickle.load(open(cheatFile, 'rb'))
 	stuff.boxes = cheat.boxes
 	stuff.overlays = cheat.overlays
 	stuff.text = cheat.text
@@ -457,17 +476,24 @@ def DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle):
 				p = util.Transform((b[X],b[Y]), stuff.transformInv)
 				util.DrawText(imgCopy, t, p[X], p[Y], color=(0,0,255))
 		
-		for rect in stuff.overlays.keys():
-			boxIndex = stuff.overlays[rect]
+		for boxIndex in stuff.overlays.keys():
+			rect = stuff.overlays[boxIndex]
 			text = stuff.text[boxIndex]
 			p = util.Transform((rect[X],rect[Y]), stuff.transformInv)
 			util.DrawRect(imgCopy, rect, color=(0,100,255), transform=stuff.transformInv)
-			util.DrawText(imgCopy, text, rect[X], rect[Y], color=(0,100,255))
-	
+			util.DrawText(imgCopy, text, p[X], p[Y], color=(0,100,255))
+		
+		# draw searchbutton
+		if (overlayMode == OverlayMode.SEARCH or overlayMode == OverlayMode.EDGE_PLUS_SEARCH) and stuff.searchButton[2] > 0:
+			util.DrawRect(imgCopy, stuff.searchButton, color=(200,0,255), transform=stuff.transformInv)
+			p = util.Transform((stuff.searchButton[X],stuff.searchButton[Y]), stuff.transformInv)
+			util.DrawText(imgCopy, 'Search', p[X], p[Y], color=(200,0,255))
+		
 		if stuff.finger != (-1,-1):
 			util.DrawPoint(imgCopy, stuff.finger, color=(0,0,255))
 			#cv.ShowImage(windowTitle, imgFinger)
-		cv.ShowImage(windowTitle, imgCopy)
+		if bigImage is not None: cv.ShowImage(windowTitle, imgFG)
+		else: cv.ShowImage(windowTitle, imgCopy)
 	elif stuff.mode == Mode.RECTIFIED:
 		aspectRatio = GetAspectRatio(stuff.corners)
 		imgRect, transform = util.GetRectifiedImage(imgCopy, stuff.corners, aspectRatio)			
@@ -599,7 +625,7 @@ def HandleKey(key):
 	elif char == 'p':
 		ProcessImage()
 	elif char == '1':
-		LoadCheat('test.pickle')
+		LoadCheat('logs/1334056876961-data.pickle')
 		
 camera = None
 
@@ -618,8 +644,11 @@ def main():
 	for arg in sys.argv[1:]:
 		pname, pval = arg.split('=')
 		if pname == 'rotate': rotate = int(pval)
-		elif pname == 'thimble': useThimble = lower(pval) == 'true'
-		elif pname == 'cloud': useCloudOcr = lower(pval) == 'true'	
+		elif pname == 'thimble': useThimble = pval.lower() == 'true'
+		elif pname == 'cloud': useCloudOcr = pval.lower() == 'true'	
+		elif pname == 'overlays' and pval.lower() == 'true':
+			global overlayMode
+			overlayMode=OverlayMode.EDGE_PLUS_SEARCH
 	
 	camera = cv.CaptureFromCAM(0)
 	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, smallRez[X])
@@ -630,8 +659,8 @@ def main():
 	cv.NamedWindow(windowTitle, 1) 
 	counter = 0
 
-	if useCloudOCR: 
-		boto = quikBoto.quikBoto(testing=True)
+	if useCloudOcr: 
+		boto = quikBoto.QuikBoto()
 		boto.StartTasks()
 	while True:
 		key = cv.WaitKey(10)
@@ -640,15 +669,15 @@ def main():
 				
 		img = cv.QueryFrame(camera)
 		util.RotateImage(img, imgCopy, rotate)
-		bg2.FindBackground(imgCopy, imgBG, bgModel, update=0)
+		if bgModel is not None: bg2.FindBackground(imgCopy, imgFG, bgModel, update=0)
 		cv.Zero(imgMasked)
-		cv.Copy(imgCopy,imgMasked,imgBG) # now we have a masked image!
+		cv.Copy(imgCopy,imgMasked,imgFG) # now we have a masked image!
 
 		HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff)
 		DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle)
 		counter += 1
 		
-		if counter % 300 == 0 and useCloudOCR:
+		if counter % 300 == 0 and useCloudOcr:
 			if len(boxesToComplete.keys()) > 0: boto.StartTasks()
 			else: boto.EndTasks()
 
