@@ -25,14 +25,15 @@ imgGray = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
 imgB = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
 imgG = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
 imgR = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
+imgFG = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
 imgEdge = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
 imgHSV = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 3)
+imgMasked = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 3)
 imgFinger = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 1)
 imgRect = None
 
 threshold = 30*1
 tracking = None
-touched = None
 overlayMode = OverlayMode.NONE
 drewOverlays = False
 handInView = False
@@ -40,9 +41,6 @@ handInView = False
 speech = speechManager.SpeechManager()
 useCloudOcr = False
 aspectRatio = (11,8.5)
-
-useFakeOcr = False
-FakeOcrFile = 'seattle.txt'
 useThimble = True
 
 # ocr stuff
@@ -58,9 +56,12 @@ newImageToProcess = False
 
 stuff = Stuff()
 
+bgModel = None
+boxesToRecognize = {}
+
 # capture big, medium, small images
 def CaptureImages():
-	global bigImage, mediumImage, smallImage, newImageToProcess
+	global bigImage, mediumImage, smallImage, newImageToProcess, bgModel
 	speech.Say('Capturing images')
 	
 	timestamp = int(time.time()*1000)
@@ -89,11 +90,24 @@ def CaptureImages():
 	cv.SaveImage(sname, smallImage)
 	print 'Saved small image: %s' % sname
 	
+	# background
+	size = smallRez if rotate == 0 else (smallRez[1],smallRez[0])
+	bgModel = bg2.BackgroundModel(size[0], size[1], yThreshold=20, fitThreshold=16, yccMode=0)
+	
+	trainImages = 10
+	logging.debug('Training background')
+	for i in range(0, trainImages):
+		smFrame = cv.QueryFrame(camera)
+		smallImage = util.RotateImage(smFrame, None, rotate)
+		bg2.FindBackground(smFrame, imgBG, bgModel)
+	
 	newImageToProcess = True
 
 # get text areas and start OCR
+
+overlayLookup = {}
 def ProcessImage():
-	global bigImage, mediumImage, smallImage
+	global bigImage, mediumImage, smallImage, overlayLookup
 	if bigImage is None: CaptureImages()
 	# find rectangle
 	
@@ -128,28 +142,68 @@ def ProcessImage():
 		except Exception as e:
 			logger.debug('It broke! %s' % e)	
 		finally:
-			speech.Say('Located %d potential text items' % len(stuff.boxes)) 
+			speech.Say('Located %d potential text items' % len(stuff.boxes), block=True) 
 		
-		#speech.Say('Starting OCR')
-			DoOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
+			global boxesToComplete
+			boxesToComplete = {}
+			for i in range(0, len(stuff.boxes):
+				boxesToComplete[i] = True
+		
+			speech.Say('Starting OCR', block=True)
+			if not useCloudOCR: DoOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
+			else: DoCloudOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
 			
-			#while len(stuff.text.keys()) != len(stuff.boxes):
-			#	speech.Say('Waiting for %d OCR items' % (len(stuff.boxes) - len(stuff.text.keys())))
-			#	time.sleep(5)
-			#speech.Say('OCR complete')
+			while len(boxesToComplete.keys()) > 0:
+				print 'Waiting for %d OCR items' % (len(boxesToComplete.keys()))
+				# speech.Say('Waiting for %d OCR items' % (len(stuff.boxes) - len(stuff.text.keys())))
+				time.sleep(5)
+			speech.Say('OCR complete', block=True)
 			
 			# add overlays
-			print len(stuff.text.keys())
+			if overlayMode == OverlayMode.EDGE or overlayMode == OverlayMode.EDGE_PLUS_SEARCH:
+				docWidth = imgRect.width
+				docHeight = imgRect.height
+				overlayWidth = docWidth*.2
+				overlayHeight = float(docHeight) / len(stuff.text.keys())
+				overlayX = docWidth - overlayWidth/2
+				overlayLookup = {}
+				
+				# get reverse overlay lookup
+				# this has words as a key and box index as the value
+				for boxIndex in stuff.text.keys():
+					overlayLookup[stuff.text[boxIndex]] = boxIndex
+				
+				# set the overlay. key (rect), value (boxIndex)
+				overlayTexts = sorted(overlayLookup.keys())
+				y = 0 # height of the next rect
+				for text in overlayTexts:
+					rect = [overlayX, y, overlayWidth, overlayHeight]
+					y += overlayHeight
+					stuff.overlays[rect] = overlayLookup[text]
+			
+			if overlayMode == OverlayMode.SEARCH or overlayMode == OverlayMode.EDGE_PLUS_SEARCH: 
+				docWidth = imgRect.width
+				docHeight = imgRect.height
+				overlayWidth = docWidth*.2
+				overlayX = -overlayWidth/2
+				overlayY = docHeight - overlayWidth/2
+				
+				stuff.searchButton = [overlayX, overlayY, overlayWidth, overlayHeight]
+				
+			# enable gestures
 			global processInput
 			processInput = True
 
 accumulator = 0	
 documentOnTable = False
+touched = None
+touchCounter = 0
+touchLimit = 90
 def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff, aspectRatio):
-	global drewOverlays
 	global accumulator
 	global bigImage, mediumImage, smallImage 
 	global documentOnTable
+	global tracking
 	
 	if not documentOnTable:
 		util.GetGrayscale(imgCopy, imgGray)
@@ -162,6 +216,8 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 				speech.Say('Document detected')
 				documentOnTable = True
 				stuff.corners = rect
+				# get transforms
+				imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
 		else:
 			accumulator = 0
 	elif documentOnTable:
@@ -177,71 +233,145 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 				accumulator = 0
 		#else:
 		#	accumulator -= 2		
-	
-	if processInput and len(stuff.text.keys()) > 0 and  len(stuff.text.keys()) == len(stuff.boxes) and not drewOverlays:
-		# draw our overlays here
-		drewOverlays = True
 		
-		if overlayMode == OverlayMode.NONE: pass
-		elif overlayMode == OverlayMode.EDGE: pass
-		elif overlayMode == OverlayMode.SEARCH: pass
-		elif overlayMode == OverlayMode.EDGE_PLUS_SEARCH: pass
+	if processInput and len(stuff.text.keys()) > 0 and tracking is None:  # finger tracking, tracing 
+		global touched, touchCounter, touchLimit
+		stuff.finger = GetCursor(imgCopy, imgHSV, imgFinger)
+		
+		doc = [0,0,imgRect.width,imgRect.height]
+		
+		fingerTrans = util.Transform(stuff.finger, stuff.transform)
+		
+		# what are we touching? overlay, search button, in paper, item
+		fingerHandled = False
+		
+		for overlay in stuff.overlays.keys():
+			if not fingerHandled and util.PointInsideRect(stuff.finger, overlay):
+				fingerHandled = True
+				if touched is None or touched != overlay:
+					# new, say it
+					whatToSay = stuff.text[stuff.overlays[overlay]].split(' ')[0:1] # first 1 words
+					speech.Say('Shortcut %s.' % whatToSay)
+					touched = overlay
+					touchCounter = 0
+				else: # dwell 
+					touchCounter += 1
+					if touchCounter == touchLimit: # start tracking
+						tracking = stuff.overlays[overlay]
+						stuff.Say('Finding %s' % stuff.text[stuff.overlays[overlay]])
+		# search button
+		if not fingerHandled and util.PointInsideRect(stuff.finger, searchButton):
+			fingerHandled = True
+			if touched is None or touched != searchButton:
+				speech.Say('Search')
+				touched = searchButton
+				touchCounter = 0
+			else: #dwell
+				touchCounter += 1
+				if touchCounter == touchLimit: # start tracking
+					util.beep()
+					items = [word.split(' ')[0] for word in stuff.text.values()]
+					command = speech.listen(phrases=items)
+					if command is not None and command != '':
+						for key in stuff.text.keys():
+							text = stuff.text[key]
+							if text.startswith(command): # found it
+								tracking = key
+								stuff.Say('Finding %s' % stuff.text[key])
+								break
+		# inside an item?
+		for box in stuff.boxes:
+			if not fingerHandled and util.PointInsideRect(stuff.finger, box):
+				fingerHandled = True
+				touchCounter = 0
+				if touched is None or touched != box:
+					speech.Say(self.texts[stuff.boxes.index(box)])
+					touched = box
+					
+		# otherwise, if inside page, find the nearest page
+		if not fingerHandled and util.PointInsideRect(stuff.finger, doc):
+			# get the center of each rect, which is the closest?
+			centers = [(p[0]+p[2]/2,p[1]+p[3]/2) for p in stuff.boxes]
+			closestBox = centers.index(min(centers, key=lambda c: util.Distance(c, stuff.finger)))
+			box = stuff.boxes[closestBox]
+			fingerHandled = True
+			touchCounter = 0
+			if touched is None or touched != box:
+				speech.Say(self.texts[stuff.boxes.index(box)])
+				touched = box
+							
+		if not fingerHandled: touchCounter = 0
+	elif tracking is not None: # tracking
+		# tracking is a box index
+		box = stuff.boxes[tracking]
+		trackPoint = [box[0]+box[2]/2,box[1]+box[3]/2]
+		
+		dx = trackPoint[0] - stuff.finger[0]
+		dy = trackPoint[1] - stuff.finger[1]
+		
+		# get dir
+		direction = ''
+		if abs(dx) > abs(dy):
+			if dx > 0: direction = 'right'
+			else: direction = 'left'
+		else:
+			if dy > 0: direction = 'down'
+			else: direction = 'up'
 	
-	elif len(stuff.text.keys()) > 0 and tracking is None:  # finger tracking, tracing 
-		global touched
-		if useThimble == False: return
-		# use thimble
-		stuff.finger = GetGreenCursor(imgCopy, imgHSV, imgFinger)
-		global handInView
-		if not handInView and stuff.finger != (-1,-1): #hello hand!
-			speech.Say('hand detected')
-			handInView = True
-		elif handInView and stuff.finger == (-1,-1):
-			speech.Say('hand removed')
-			handInView = False
-		touchedAreas = [area for area in stuff.boxes if util.PointInsideRect(util.Transform(stuff.finger, stuff.transform), area)]
-		if len(touchedAreas) > 0:
-			oldTouched = touched
-			touched = stuff.boxes.index(touchedAreas[0])
-			if (oldTouched is None or oldTouched != touched) and len(stuff.text.keys()) > touched and stuff.text[touched] is not None and len(stuff.text[touched]) > 5: speech.Say(stuff.text[touched]) # say it 
-		else: touched = None
-	
+		inside = util.PointInsideRect(stuff.finger, box)
+		if inside:
+			speech.Say('Located %s' % stuff.text[tracking])
+			tracking = False
+		elif not speech.IsSpeaking():
+			speech.Say(direction)
 	
 # modified from http://www.davidhampgonsalves.com/2011/05/OpenCV-Python-Color-Based-Object-Tracking
-def GetGreenCursor(frame, imgHSV, imgFinger):
-	cv.Copy(frame, imgHSV)
-	cv.Smooth(imgHSV, imgHSV, cv.CV_BLUR, 3); 
+def GetCursor(frame, imgHSV, imgFinger):
+	if useThimble:
+		cv.Copy(imgMasked, imgHSV)
+		cv.Smooth(imgHSV, imgHSV, cv.CV_BLUR, 3); 
+		
+		#convert the image to hsv(Hue, Saturation, Value) so its  
+		#easier to determine the color to track(hue) 
+		#hsv_img = cv.CreateImage(cv.GetSize(img), 8, 3) 
+		cv.CvtColor(imgHSV, imgHSV, cv.CV_BGR2HSV) 
+		
+		#limit all pixels that don't match our criteria, in this case we are  
+		#looking for purple but if you want you can adjust the first value in  
+		#both turples which is the hue range(120,140).	OpenCV uses 0-180 as  
+		#a hue range for the HSV color model 
+		#thresholded_img =  cv.CreateImage(cv.GetSize(hsv_img), 8, 1) 
+		cv.Zero(imgFinger)
+		cv.InRangeS(imgHSV, (greenLow, 40, 40), (greenHigh, 255, 255), imgFinger) 
+		
+		#determine the objects moments and check that the area is large	 
+		#enough to be our object 
+		#moments = cv.Moments(cv.GetMat(imgFinger,1), 0)
+		#area = cv.GetCentralMoment(moments, 0, 0) 
+		
+		#there can be noise in the video so ignore objects with small areas 
+		#if(area > 100000): 
+			#determine the x and y coordinates of the center of the object 
+			#we are tracking by dividing the 1, 0 and 0, 1 moments by the area 
+			#x = cv.GetSpatialMoment(moments, 1, 0)/area 
+			#y = cv.GetSpatialMoment(moments, 0, 1)/area 
+			#return (x,y)
+	else:
+		cv.Copy(imgFG,imgFinger)
+
+	# get contours
+	contours = util.FindContours(imgFinger,minSize=(20,20))
+	contours.sort(key=lambda c: -1*util.BoundingRectArea(c)) # contours[0] is the biggest
 	
-	#convert the image to hsv(Hue, Saturation, Value) so its  
-	#easier to determine the color to track(hue) 
-	#hsv_img = cv.CreateImage(cv.GetSize(img), 8, 3) 
-	cv.CvtColor(imgHSV, imgHSV, cv.CV_BGR2HSV) 
+	if len(contours) > 0:
+		bigContour = contours[0]
+		top = min(bigContour, key=lambda p:p[1])
+		return top
 	
-	#limit all pixels that don't match our criteria, in this case we are  
-	#looking for purple but if you want you can adjust the first value in  
-	#both turples which is the hue range(120,140).	OpenCV uses 0-180 as  
-	#a hue range for the HSV color model 
-	#thresholded_img =  cv.CreateImage(cv.GetSize(hsv_img), 8, 1) 
-	cv.Zero(imgFinger)
-	cv.InRangeS(imgHSV, (greenLow, 40, 40), (greenHigh, 255, 255), imgFinger) 
-	
-	#determine the objects moments and check that the area is large	 
-	#enough to be our object 
-	moments = cv.Moments(cv.GetMat(imgFinger,1), 0)
-	area = cv.GetCentralMoment(moments, 0, 0) 
-	
-	#there can be noise in the video so ignore objects with small areas 
-	if(area > 100000): 
-		#determine the x and y coordinates of the center of the object 
-		#we are tracking by dividing the 1, 0 and 0, 1 moments by the area 
-		x = cv.GetSpatialMoment(moments, 1, 0)/area 
-		y = cv.GetSpatialMoment(moments, 0, 1)/area 
-		return (x,y)
 	else: return (-1,-1)
 		
-def DoOCR(imgCopy, imgRect, corners, boxes):
-	imgRect, transform = util.GetRectifiedImage(imgCopy, corners, aspectRatio)
-	ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = 1, dilateSteps = 3, windowSize = 4, boxMinSize = 30)
+def DoOCR(oimg, orect, corners, boxes):
+	ocr = ocr2.OCRManager(orect.width, orect.height, boxAspectThresh = 1, dilateSteps = 3, windowSize = 4, boxMinSize = 30)
 	ocr.ClearOCRTempFiles()
 	filenames = ['ocrtemp/box%d.png' % i for i in range(0, len(boxes))]
 
@@ -249,7 +379,7 @@ def DoOCR(imgCopy, imgRect, corners, boxes):
 	
 	for boxIndex in range(0, len(boxes)):
 		box = boxes[boxIndex]
-		fname = ocr.CreateTempFile(imgRect, box, boxIndex)
+		fname = ocr.CreateTempFile(orect, box, boxIndex)
 		pool.apply_async(CallOCREngine, (boxIndex, ocr2.DefaultWorkingDirectory, ocr2.DefaultRecognizer), callback=setText)
 	pool.close()
 	pool.join()
@@ -262,38 +392,33 @@ def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recogni
 	result = open('ocrtemp/box%s.txt' % fileID).read().strip()
 	print 'result ', result
 	return (result, fileID)		
+
+# load textareas, ocr stuff, into the current calibration data
+def LoadCheat(cheatFile):
+	global stuff
+	cheat = pickle.load(stuff, open(cheatFile, 'rb'))
+	stuff.boxes = cheat.boxes
+	stuff.overlays = cheat.overlays
+	stuff.text = cheat.text
+	stuff.searchButton = cheat.searchButton
 		
-def DoCloudOCR():
+def DoCloudOCR(oimg, orect, corners, boxes):
 	sessionID = int(time.time())
 	# re-rectify to clear drawn lines
-	cv.Copy(img, imgCopy)
-	imgRect, transform = util.GetRectifiedImage(img, stuff.corners, aspectRatio)
-	if stuff.mode == 0: cv.ShowImage(windowTitle, imgCopy)
-	elif stuff.mode == 1: cv.ShowImage(windowTitle, imgRect)
 	
 	cv.WaitKey(10)
-	ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = 1, dilateSteps = 3, windowSize = 4, boxMinSize = 30)
+	ocr = ocr2.OCRManager(orect.width, orect.height, boxAspectThresh = 1, dilateSteps = 3, windowSize = 4, boxMinSize = 30)
 
 	# clear out text
 	stuff.text = {}
 
 	filenames = ['ocrtemp/box%d.png' % i for i in range(0, len(stuff.boxes))]
 
-	for boxIndex in range(0, len(stuff.boxes)):
-		print imgRect
-		box = stuff.boxes[boxIndex]
+	for boxIndex in range(0, len(boxes)):
+		box = boxes[boxIndex]
 		print box
-		fname = ocr.CreateTempFile(imgRect, box, boxIndex)
+		fname = ocr.CreateTempFile(orect, box, boxIndex)
 
-		#pool.apply_async(CallOCREngine, (id, ocr2.DefaultWorkingDirectory, ocr2.DefaultRecognizer, i), callback=setText)
-		
-		#text = ocr.CallOCREngine(id, recognizer=ocr2.Recognizer.TESSERACT)
-		#text = ''
-		# text = self.dict.CorrectPhrase(text, verbose=True)
-		#if text is not None: 
-		#	print 'Recognized %s' % text
-		#	setText(i, text)
-	
 	print 'uploading images'
 	cloudKeys = CloudUpload(sessionID, filenames)
 	print 'images uploaded'
@@ -306,7 +431,7 @@ def DoCloudOCR():
 	
 	ResetCloudOCR()
 	print 'sending images to mturk'
-	for boxIndex in range(0, len(stuff.boxes)):
+	for boxIndex in range(0, len(boxes)):
 		pool.apply_async(CloudOCR,(boxIndex, cloudKeys[boxIndex]), callback=setText)
 	print 'done. %d items to recognize' % stuff.ocrItemsRemaining		
 	pool.close()
@@ -321,12 +446,19 @@ def DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle):
 		for i in range(0,len(stuff.boxes)):
 			b = stuff.boxes[i]
 			util.DrawRect(imgCopy, b, color=(0,0,255), transform=stuff.transformInv)
-			if len(stuff.text.keys()) > i and stuff.text.has_key(i):
+			if stuff.text.has_key(i):
 				t = stuff.text[i]
 				p = util.Transform((b[X],b[Y]), stuff.transformInv)
 				util.DrawText(imgCopy, t, p[X], p[Y], color=(0,0,255))
+		
+		for rect in stuff.overlays.keys():
+			boxIndex = stuff.overlays[rect]
+			text = stuff.text[boxIndex]
+			p = util.Transform((rect[X],rect[Y]), stuff.transformInv)
+			util.DrawRect(imgCopy, rect, color=(0,100,255), transform=stuff.transformInv)
+			util.DrawText(imgCopy, text, rect[X], rect[Y], color=(0,100,255))
 	
-		if stuff.finger is not None and stuff.finger != (-1,-1):
+		if stuff.finger != (-1,-1):
 			util.DrawPoint(imgCopy, stuff.finger, color=(0,0,255))
 			#cv.ShowImage(windowTitle, imgFinger)
 		cv.ShowImage(windowTitle, imgCopy)
@@ -388,26 +520,23 @@ def CloudOCR(boxIndex, cloudKey):
 	return (result, boxIndex)
 
 def setText(result):
-	print 'WOOOO'
-	global stuff
+	global stuff, boxesToComplete
 	text, index = result
-	if text is not None:
+	del boxesToComplete[index]
+	if text is not None: 
 		text = text.strip()
-		print 'recognized %s (%d/%d)' % (text, len(stuff.boxes)-len(stuff.text.keys()), len(stuff.text.keys()))
-
-		if text == '*' or text == '': 
-			#stuff.text[index] = None
+		logging.debug( 'recognized %s, %d left' % (text, len(boxesToComplete.keys())))
+	
+		if text is None or text == '*' or text == '': 
+			# stuff.text[index] = None
 			stuff.boxes[index] = [0,0,0,0]
 		else:
 			# print 'async recoed %s' % text
 			stuff.text[index] = text
-		#stuff.ocrItemsRemaining -= 1
-		#if stuff.ocrItemsRemaining == 0:
-		#	print 'BOOM! Recognized all text'	
 	
 usingBigRez = False
 def ToggleResolution():
-	global usingBigRez, imgCopy, imgGray, imgEdge, imgHSV, imgFinger, camera
+	global usingBigRez, img, imgCopy, imgGray, imgEdge, imgHSV, imgFinger, camera, imgFG, imgMasked
 	newWidth = 0
 	newHeight = 0
 	if usingBigRez:
@@ -421,7 +550,7 @@ def ToggleResolution():
 	SetResolution((newWidth, newHeight))	
 
 def SetResolution(rez):
-	global camera
+	global usingBigRez, img, imgCopy, imgGray, imgEdge, imgHSV, imgFinger, camera, imgFG, imgMasked
 	newWidth = rez[0]
 	newHeight = rez[1]
 	
@@ -434,11 +563,16 @@ def SetResolution(rez):
 		print frame.width
 		frame = cv.QueryFrame(camera)
 	
-	imgCopy = cv.CreateImage((newHeight, newWidth), vidDepth, 3)
-	imgGray = cv.CreateImage((newHeight, newWidth), vidDepth, 1)
-	imgEdge = cv.CreateImage((newHeight, newWidth), vidDepth, 1)
-	imgHSV = cv.CreateImage((newHeight, newWidth), vidDepth, 3)
-	imgFinger = cv.CreateImage((newHeight, newWidth), vidDepth, 1)
+	size = (newWidth,newHeight) if rotate == 0 else (newHeight, newWidth)
+	img = cv.CreateImage((newWidth,newHeight), vidDepth, 3)
+	imgCopy = cv.CreateImage(size, vidDepth, 3)
+	imgGray = cv.CreateImage(size, vidDepth, 1)
+	imgEdge = cv.CreateImage(size, vidDepth, 1)
+	imgHSV = cv.CreateImage(size, vidDepth, 3)
+	imgMasked = cv.CreateImage(size, vidDepth, 3)
+	imgFinger = cv.CreateImage(size, vidDepth, 1)
+	imgFG = cv.CreateImage(size, vidDepth, 1)
+	
 		
 def HandleKey(key):
 	global imgRect, stuff
@@ -458,20 +592,34 @@ def HandleKey(key):
 		CaptureImages()
 	elif char == 'p':
 		ProcessImage()
+	elif char == '1':
+		LoadCheat('test.pickle')
 		
 camera = None
-		
+
+def GetAspectRatio(points, options=((8.5,11),(11,8.5),(5,5))):
+	ratio = util.GetAspectRatio(points, options)
+	logging.debug('Guessed aspect ratio! %f:%f' % ratio)
+	return ratio
+
+# args:rotate=(int)
+# args: thimble=(true|false)
+# args: cloud=true|false
 def main():
 	logger.debug('Started')
-	global camera, stuff, FakeOcrFile, useFakeOcr
-	if len(sys.argv) > 1:
-		useFakeOcr = True
-		cheatFile = sys.argv[1]
-		if os.path.exists(cheatFile): stuff = pickle.load(open(cheatFile, 'rb'))
+	global camera, stuff, rotate, useThimble, useCloudOcr
+	
+	for arg in sys.argv[1:]:
+		pname, pval = arg.split('=')
+		if pname == 'rotate': rotate = int(pval)
+		elif pname == 'thimble': useThimble = lower(pval) == 'true'
+		elif pname == 'cloud': useCloudOcr = lower(pval) == 'true'	
 	
 	camera = cv.CaptureFromCAM(0)
 	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, smallRez[X])
 	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_HEIGHT, smallRez[Y])
+	
+	SetResolution(smallRez)
 	
 	cv.NamedWindow(windowTitle, 1) 
 	counter = 0
@@ -483,6 +631,10 @@ def main():
 				
 		img = cv.QueryFrame(camera)
 		util.RotateImage(img, imgCopy, rotate)
+		bg2.FindBackground(imgCopy, imgBG, bgModel, update=0)
+		cv.Zero(imgMasked)
+		cv.Copy(imgCopy,imgMasked,imgBG) # now we have a masked image!
+
 		HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff, aspectRatio)
 		DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle)
 		counter += 1

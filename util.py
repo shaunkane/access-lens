@@ -148,6 +148,14 @@ def Transform(point, homography):
 	result = numpy.dot(homography,a)
 	return numpy.array((result[0]/result[2],result[1]/result[2]),dtype=numpy.float32)
 
+# assume points are tl, tr, br, bl
+def GetAspectRatio(points, options=((8.5,11),(11,8.5),(5.,5)):
+	tl, tr, br, bl = points
+	width = (Distance(tl, tr)+Distance(bl, br))/2
+	height = (Distance(tl, bl)+Distance(tr, br))/2
+	ratio = float(width)/height
+	return (min(options, key=lambda p: abs(ratio-p[X]/p[Y])))
+
 def GetRectifiedImage(img, points, aspectRatio, padding=0): # return a NEW, perfectly sized rectified image
 	srcs = numpy.array(ReordersClockwise(points), dtype=numpy.float32) # reorder points: topleft, topright, bottomleft, bottomright
 	longestDim = LongestEdge(points) # figure out dimensions of image
