@@ -4,28 +4,12 @@ from boto.mturk.question import QuestionForm, ExternalQuestion
 import time
 import sys
 import json
-import log
- 
-ACCESS_ID ='0QTWFA25NHV69QZV7JG2'
-SECRET_KEY = 'tA/iP8BAfPeBpOPJhn/NBGpf8CeUaM4PEaEQealS'
-#HOST = 'mechanicalturk.sandbox.amazonaws.com'
-HOST = 'mechanicalturk.amazonaws.com'
-
-import urllib2
-statusUrl = 'http://umbc-cloud.appspot.com/status'
-
-numImages=1
-assignmentsPerHit = 20
-maxAssignments= 100
-hitPrice=0.02
-sleepTime=5
+from log import *
 
 class QuikBoto(object):
-	def __init__(self, testing=False):
-		self.mtc = MTurkConnection(aws_access_key_id=ACCESS_ID,
-                      aws_secret_access_key=SECRET_KEY,
-                      host=HOST)
-        self.testing = testing
+	def __init__(self):
+		self.testing = False
+		self.mtc = MTurkConnection(aws_access_key_id=ACCESS_ID, aws_secret_access_key=SECRET_KEY,host=HOST)
 
 	def CreateOCRTask(self):
 		title = 'Transcribe simple image - quick'
@@ -70,7 +54,7 @@ class QuikBoto(object):
 		inProgress, available, imagesToTranscribe, timeSinceTranscript = self.GetStatus()
 		
 		logging.debug( '%d in progress, %d available, %s: images to transcribe, %d seconds since last upload' % (inProgress, available, imagesToTranscribe, timeSinceTranscript) )
-		if seconds < 120: # ramp it up
+		if timeSinceTranscript < 120: # ramp it up
 			target = assignmentsPerHit*2
 		else:
 			target = assignmentsPerHit
@@ -83,7 +67,7 @@ class QuikBoto(object):
 		inProgress, available, imagesToTranscribe, timeSinceTranscript = self.GetStatus()
 		logging.debug( '%d in progress, %d available, %s: images to transcribe, %d seconds since last upload' % (inProgress, available, imagesToTranscribe, timeSinceTranscript) )
 		if imagesToTranscribe:
-			if seconds < 120: # ramp it up
+			if timeSinceTranscript < 120: # ramp it up
 				target = assignmentsPerHit*2
 			else:
 				target = assignmentsPerHit
@@ -91,4 +75,18 @@ class QuikBoto(object):
 				for i in range(0, assignmentsPerHit):
 					self.CreateOCRTask()
 		else:
-			self.DeleteAllHits()
+			self.DeleteAllHits() 
+ 
+ACCESS_ID ='0QTWFA25NHV69QZV7JG2'
+SECRET_KEY = 'tA/iP8BAfPeBpOPJhn/NBGpf8CeUaM4PEaEQealS'
+#HOST = 'mechanicalturk.sandbox.amazonaws.com'
+HOST = 'mechanicalturk.amazonaws.com'
+
+import urllib2
+statusUrl = 'http://umbc-cloud.appspot.com/status'
+
+numImages=1
+assignmentsPerHit = 20
+maxAssignments= 100
+hitPrice=0.02
+sleepTime=5

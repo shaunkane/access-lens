@@ -9,6 +9,8 @@ import speechManager
 from studyHelper import *
 from log import *
 import quikBoto
+import json
+import urllib2
 
 windowTitle = 'ocrTestWindow'
 pickleFile = 'temp.pickle'
@@ -442,24 +444,30 @@ def DoCloudOCR(oimg, orect, corners, boxes):
 	for boxIndex in range(0, len(boxes)):
 		box = boxes[boxIndex]
 		print box
-		fname = ocr.CreateTempFile(orect, box, boxIndex)
+		fname  = ocr.CreateTempFile(orect, box, boxIndex)
 
-	print 'uploading images'
+	logging.debug( 'uploading images')
 	cloudKeys = CloudUpload(sessionID, filenames)
-	print 'images uploaded'
+	logging.debug('images uploaded')
 
-	stuff.ocrItemsRemaining = len(stuff.boxes)
-	
 	cloudKeys = cloudKeys.split(',')
-	# setting up pool
-	pool = multiprocessing.Pool(50)
+
+	while len(boxesToComplete.keys()) > 0:
+		url = 'http://umbc-cloud.appspot.com/status2'
+		req = urllib2.Request(url)
+		results = json.loads(urllib2.urlopen(req).read())
+		logging.debug('Recognized %d of %d' % (len(results), len(boxesToComplete.keys())))
+		
+		for r in results:
+			setText((r['text'],r['index']))
+	logging.debug('Finished OCR')
 	
-	ResetCloudOCR()
-	print 'sending images to mturk'
-	for boxIndex in range(0, len(boxes)):
-		pool.apply_async(CloudOCR,(boxIndex, cloudKeys[boxIndex]), callback=setText)
-	print 'done. %d items to recognize' % stuff.ocrItemsRemaining		
-	pool.close()
+	#ResetCloudOCR()
+	#print 'sending images to mturk'
+	#for boxIndex in range(0, len(boxes)):
+	#	pool.apply_async(CloudOCR,(boxIndex, cloudKeys[boxIndex]), callback=setText)
+	#print 'done. %d items to recognize' % stuff.ocrItemsRemaining		
+	#pool.close()
 	#pool.join()
 	
 def DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle):
@@ -492,8 +500,9 @@ def DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle):
 		if stuff.finger != (-1,-1):
 			util.DrawPoint(imgCopy, stuff.finger, color=(0,0,255))
 			#cv.ShowImage(windowTitle, imgFinger)
-		if bigImage is not None: cv.ShowImage(windowTitle, imgFG)
-		else: cv.ShowImage(windowTitle, imgCopy)
+		#if bigImage is not None: cv.ShowImage(windowTitle, imgFG)
+		#else: cv.ShowImage(windowTitle, imgCopy)
+		cv.ShowImage(windowTitle, imgCopy)
 	elif stuff.mode == Mode.RECTIFIED:
 		aspectRatio = GetAspectRatio(stuff.corners)
 		imgRect, transform = util.GetRectifiedImage(imgCopy, stuff.corners, aspectRatio)			
@@ -540,7 +549,7 @@ def ResetCloudOCR():
 def CloudUpload(sessionID, filenames):
 	cmd = 'python uploadCloudOcr.py %d %s > ocrtemp/cloudkeys.txt' % (sessionID, ' '.join(filenames))
 	#print 'Executing command %s' % cmd
-	os.system(cmd)
+	#os.system(cmd)
 	#print 'Done'
 	result = open('ocrtemp/cloudkeys.txt').read().strip()
 	return result
@@ -553,7 +562,7 @@ def CloudOCR(boxIndex, cloudKey):
 def setText(result):
 	global stuff, boxesToComplete
 	text, index = result
-	del boxesToComplete[index]
+	if boxesToComplete.has_key(index): del boxesToComplete[index]
 	if text is not None: 
 		text = text.strip()
 		logging.debug( 'recognized %s, %d left' % (text, len(boxesToComplete.keys())))
@@ -661,7 +670,7 @@ def main():
 
 	if useCloudOcr: 
 		boto = quikBoto.QuikBoto()
-		boto.StartTasks()
+		#boto.StartTasks()
 	while True:
 		key = cv.WaitKey(10)
 		if key == 27: break		
@@ -678,8 +687,9 @@ def main():
 		counter += 1
 		
 		if counter % 300 == 0 and useCloudOcr:
-			if len(boxesToComplete.keys()) > 0: boto.StartTasks()
-			else: boto.EndTasks()
+			pass
+			#if len(boxesToComplete.keys()) > 0: boto.StartTasks()
+			#else: boto.EndTasks()
 
 	# save for later
 	timestamp = int(time.time()*1000)

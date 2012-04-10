@@ -25,16 +25,18 @@ register_openers()
 # upload each file and get the key
 keys = []
 
+index = 0
 for fname in filenames:	
 	# headers contains the necessary Content-Type and Content-Length
 	# datagen is a generator object that yields the encoded parameters
 	datagen, headers = multipart_encode({"file": open(fname, "rb")})
 	
 	# Create the Request object
-	request = urllib2.Request('%s/upload?sessionID=%d' % (baseUrl,sessionID), datagen, headers)
+	request = urllib2.Request('%s/upload?sessionID=%d&index=%d' % (baseUrl,sessionID,index), datagen, headers)
 	# Get the key
 	key = urllib2.urlopen(request).read()
 	keys.append(key)
+	index += 1
 
 # return comma separated keys
 print ','.join(keys)
