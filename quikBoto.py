@@ -68,7 +68,7 @@ def CheckTasks():
 	elif taskStarted and count > 0:
 		print 'Task completed!'
 		DeleteAllHits()
-		return
+		sys.exit()
 		
 	print '%d in progress, %d available, %d seconds since last upload' % (inProgress, available, status['time'])
 	if taskStarted:
@@ -79,8 +79,13 @@ def CheckTasks():
 		for i in range(0, assignmentsPerHit):
 			CreateOCRTask()
 
-def Run():
-	while True:
-		CheckTasks()
-		time.sleep(sleepTime)
+def main():
+	if len(sys.argv) == 2 and sys.argv[1] == 'd':
+		DeleteAllHits()
+	else:
+		while True:
+			CheckTasks()
+			time.sleep(sleepTime)
 
+if __name__ == "__main__":
+	main()

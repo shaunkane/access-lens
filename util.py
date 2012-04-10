@@ -112,7 +112,7 @@ def FindContours(img, imgCopy=None, minLength=2, storage=None, minSize=(100,100)
 		currentContour = currentContour.h_next()
 	return blobs	
 def RotateImage(img, dest=None, angle=90): # angle in degrees
-	assert angle in (90,-90,180,-180), "Angle not supported"
+	assert angle in (0,90,-90,180,-180), "Angle not supported"
 	if dest is None:
 		if angle in (90,-90):
 			dest = cv.CreateImage((img.height, img.width), img.depth, img.nChannels)
@@ -124,10 +124,12 @@ def RotateImage(img, dest=None, angle=90): # angle in degrees
 	elif angle == -90: # CCW
 		cv.Transpose(img,dest)
 		cv.Flip(dest,dest,flipMode=0)
-	else: # 180
+	elif angle==180: # 180
 		cv.Copy(img,dest)
 		cv.Flip(dest,dest,flipMode=-1)
-	return dest
+	elif angle==0: # 180
+		cv.Copy(img,dest)
+		return dest
 # end image processing
 
 # homography and perspective transform
@@ -149,7 +151,7 @@ def Transform(point, homography):
 	return numpy.array((result[0]/result[2],result[1]/result[2]),dtype=numpy.float32)
 
 # assume points are tl, tr, br, bl
-def GetAspectRatio(points, options=((8.5,11),(11,8.5),(5.,5)):
+def GetAspectRatio(points, options=((8.5,11),(11,8.5),(5.,5))):
 	tl, tr, br, bl = points
 	width = (Distance(tl, tr)+Distance(bl, br))/2
 	height = (Distance(tl, bl)+Distance(tr, br))/2
