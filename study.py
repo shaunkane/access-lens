@@ -14,7 +14,7 @@ import urllib2
 
 windowTitle = 'ocrTestWindow'
 pickleFile = 'temp.pickle'
-saveToFile = False
+saveToFile = True
 smallRez = (640,480)
 bigRez = (1280,960)
 reallyBigRez = (2592,1944)
@@ -49,7 +49,7 @@ useThimble = True
 
 # ocr stuff
 boxAspectThresh = 1.5
-dilateSteps = 3
+dilateSteps = 6
 windowSize = 4
 boxMinSize = 50
 
@@ -113,8 +113,13 @@ def CaptureImages():
 # get text areas and start OCR
 
 overlayLookup = {}
+mediumImage = None 
+mediumRect = None 
+bigCorners = None 
+bigBoxes = None
 def ProcessImage():
 	global bigImage, mediumImage, smallImage, overlayLookup
+	global mediumImage, mediumRect, bigCorners, bigBoxes
 	if bigImage is None: CaptureImages()
 	# find rectangle
 	
@@ -155,57 +160,64 @@ def ProcessImage():
 			logger.debug('It broke! %s' % e)	
 		finally:
 			speech.Say('Located %d potential text items' % len(stuff.boxes), block=True) 
+
+def CreateOverlays():
+	stuff.overlays = {}
+	if overlayMode == OverlayMode.EDGE or overlayMode == OverlayMode.EDGE_PLUS_SEARCH and len(stuff.text.keys()) > 0:
+		global rectWidth, rectHeight
+		rectWidth = imgRect.width
+		rectHeight = imgRect.height
+		docWidth = rectWidth
+		docHeight = rectHeight
+		overlayWidth = docWidth*.2
+		overlayHeight = float(docHeight) / len(stuff.text.keys())
+		overlayX = docWidth - overlayWidth/2
+		overlayLookup = {}
+	
+		# get reverse overlay lookup
+		# this has words as a key and box index as the value
+		for boxIndex in stuff.text.keys():
+			overlayLookup[stuff.text[boxIndex]] = boxIndex
 		
-			global boxesToComplete
-			boxesToComplete = {}
-			for i in range(0, len(stuff.boxes)):
-				boxesToComplete[i] = True
+		# set the overlay. key (rect), value (boxIndex)
+		overlayTexts = sorted(overlayLookup.keys())
+		y = 0 # height of the next rect
+		for text in overlayTexts:
+			rect = [overlayX, y, overlayWidth, overlayHeight]
+			y += overlayHeight
+			stuff.overlays[overlayLookup[text]] = rect
+
+	if overlayMode == OverlayMode.SEARCH or overlayMode == OverlayMode.EDGE_PLUS_SEARCH: 
+		docWidth = rectWidth
+		docHeight = rectHeight
+		overlayWidth = docWidth*.2
+		overlayX = -overlayWidth/2
+		overlayY = docHeight - overlayWidth/2
 		
-			speech.Say('Starting OCR', block=True)
-			if not useCloudOcr: DoOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
-			else: DoCloudOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
-			
-			while len(boxesToComplete.keys()) > 0:
-				print 'Waiting for %d OCR items' % (len(boxesToComplete.keys()))
-				# speech.Say('Waiting for %d OCR items' % (len(stuff.boxes) - len(stuff.text.keys())))
-				time.sleep(5)
-			speech.Say('OCR complete', block=True)
-			
-			# add overlays
-			if overlayMode == OverlayMode.EDGE or overlayMode == OverlayMode.EDGE_PLUS_SEARCH and len(stuff.text.keys()) > 0:
+		stuff.searchButton = [overlayX, overlayY, overlayWidth, overlayHeight]
 				
-				docWidth = rectWidth
-				docHeight = rectHeight
-				overlayWidth = docWidth*.2
-				overlayHeight = float(docHeight) / len(stuff.text.keys())
-				overlayX = docWidth - overlayWidth/2
-				overlayLookup = {}
-				
-				# get reverse overlay lookup
-				# this has words as a key and box index as the value
-				for boxIndex in stuff.text.keys():
-					overlayLookup[stuff.text[boxIndex]] = boxIndex
-				
-				# set the overlay. key (rect), value (boxIndex)
-				overlayTexts = sorted(overlayLookup.keys())
-				y = 0 # height of the next rect
-				for text in overlayTexts:
-					rect = [overlayX, y, overlayWidth, overlayHeight]
-					y += overlayHeight
-					stuff.overlays[overlayLookup[text]] = rect
-			
-			if overlayMode == OverlayMode.SEARCH or overlayMode == OverlayMode.EDGE_PLUS_SEARCH: 
-				docWidth = rectWidth
-				docHeight = rectHeight
-				overlayWidth = docWidth*.2
-				overlayX = -overlayWidth/2
-				overlayY = docHeight - overlayWidth/2
-				
-				stuff.searchButton = [overlayX, overlayY, overlayWidth, overlayHeight]
-				
-			# enable gestures
-			global processInput
-			processInput = True
+def StartOcr():
+	global boxesToComplete
+	boxesToComplete = {}
+	for i in range(0, len(stuff.boxes)):
+		boxesToComplete[i] = True
+
+	speech.Say('Starting OCR', block=True)
+	if not useCloudOcr: DoOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
+	else: DoCloudOCR(mediumImage, mediumRect, bigCorners, bigBoxes)
+	
+	while len(boxesToComplete.keys()) > 0:
+		print 'Waiting for %d OCR items' % (len(boxesToComplete.keys()))
+		# speech.Say('Waiting for %d OCR items' % (len(stuff.boxes) - len(stuff.text.keys())))
+		time.sleep(5)
+	speech.Say('OCR complete', block=True)
+	
+	# add overlays
+	CreateOverlays()
+	
+	# enable gestures
+	global processInput
+	processInput = True
 
 accumulator = 0	
 documentOnTable = False
@@ -287,11 +299,12 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 				if touchCounter == touchLimit: # start tracking
 					util.beep()
 					items = [word.split(' ')[0] for word in stuff.text.values()]
-					command = speech.listen(phrases=items)
+					allWords = [phrase.split(' ') for phrase in items]
+					command = speech.listen(phrases=allWords)
 					if command is not None and command != '':
 						for key in stuff.text.keys():
 							text = stuff.text[key]
-							if text.startswith(command): # found it
+							if command in text: # found it
 								tracking = key
 								speech.Say('Finding %s' % stuff.text[key])
 								break
@@ -425,9 +438,10 @@ def LoadCheat(cheatFile):
 	global stuff
 	cheat = pickle.load(open(cheatFile, 'rb'))
 	stuff.boxes = cheat.boxes
-	stuff.overlays = cheat.overlays
+	#stuff.overlays = cheat.overlays
 	stuff.text = cheat.text
-	stuff.searchButton = cheat.searchButton
+	#stuff.searchButton = cheat.searchButton
+	CreateOverlays()
 		
 def DoCloudOCR(oimg, orect, corners, boxes):
 	sessionID = int(time.time())
@@ -549,7 +563,7 @@ def ResetCloudOCR():
 def CloudUpload(sessionID, filenames):
 	cmd = 'python uploadCloudOcr.py %d %s > ocrtemp/cloudkeys.txt' % (sessionID, ' '.join(filenames))
 	#print 'Executing command %s' % cmd
-	#os.system(cmd)
+	os.system(cmd)
 	#print 'Done'
 	result = open('ocrtemp/cloudkeys.txt').read().strip()
 	return result
@@ -631,10 +645,12 @@ def HandleKey(key):
 		print 'Processing input? %s' % processInput
 	elif char == 'c':
 		CaptureImages()
+	elif char == 'o':
+		StartOcr()
 	elif char == 'p':
 		ProcessImage()
 	elif char == '1':
-		LoadCheat('logs/1334056876961-data.pickle')
+		LoadCheat('saved/maryland.pickle')
 		
 camera = None
 
@@ -650,14 +666,20 @@ def main():
 	logger.debug('Started')
 	global camera, stuff, rotate, useThimble, useCloudOcr, boto
 	
+	if len(sys.argv) == 2 and sys.argv[1] == '-h':
+		print 'python study.py rotate=(rot) thimble=(true|false) cloud=(true|false) overlays=(edge|search|all|none)'
+		sys.exit()
+	
 	for arg in sys.argv[1:]:
 		pname, pval = arg.split('=')
 		if pname == 'rotate': rotate = int(pval)
 		elif pname == 'thimble': useThimble = pval.lower() == 'true'
 		elif pname == 'cloud': useCloudOcr = pval.lower() == 'true'	
-		elif pname == 'overlays' and pval.lower() == 'true':
+		elif pname == 'overlays':
 			global overlayMode
-			overlayMode=OverlayMode.EDGE_PLUS_SEARCH
+			if pval.lower() == 'all': overlayMode=OverlayMode.EDGE_PLUS_SEARCH
+			elif pval.lower() == 'search': overlayMode=OverlayMode.SEARCH
+			elif pval.lower() == 'edge': overlayMode=OverlayMode.EDGE
 	
 	camera = cv.CaptureFromCAM(0)
 	cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, smallRez[X])
@@ -693,7 +715,7 @@ def main():
 
 	# save for later
 	timestamp = int(time.time()*1000)
-	outputFile = 'logs/%d-data.pickle' % timestamp
+	outputFile = 'logs/data-%d.pickle' % timestamp
 	if saveToFile: pickle.dump(stuff, open(outputFile, 'wb'))
 	print 'Saving file: %s' % outputFile
 	logger.debug('Ended')
