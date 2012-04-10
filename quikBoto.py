@@ -4,6 +4,7 @@ from boto.mturk.question import QuestionForm, ExternalQuestion
 import time
 import sys
 import json
+import log
  
 ACCESS_ID ='0QTWFA25NHV69QZV7JG2'
 SECRET_KEY = 'tA/iP8BAfPeBpOPJhn/NBGpf8CeUaM4PEaEQealS'
@@ -13,9 +14,6 @@ HOST = 'mechanicalturk.amazonaws.com'
 import urllib2
 statusUrl = 'http://umbc-cloud.appspot.com/status'
 
-
-
-
 numImages=1
 assignmentsPerHit = 20
 maxAssignments= 100
@@ -23,10 +21,11 @@ hitPrice=0.02
 sleepTime=5
 
 class QuikBoto(object):
-	def __init__(self):
+	def __init__(self, testing=False):
 		self.mtc = MTurkConnection(aws_access_key_id=ACCESS_ID,
                       aws_secret_access_key=SECRET_KEY,
                       host=HOST)
+        self.testing = testing
 
 	def CreateOCRTask(self):
 		title = 'Transcribe simple image - quick'
@@ -34,19 +33,20 @@ class QuikBoto(object):
 		keywords = 'image, transcription'
 		q1 = ExternalQuestion('https://umbc-cloud.appspot.com/transcribe?tasks=%d' % numImages,600)
 		
-		self.mtc.create_hit(question=q1,
+		if not self.testing: self.mtc.create_hit(question=q1,
 			max_assignments=1,
 			title=title,
 			description=description,
 			keywords=keywords,
 			duration = 60*1,
 			reward=hitPrice)
-	
+		
+		logging.debug('Creating HIT')	
 	def DeleteAllHits(self):
-		print 'Disabling hits'
+		logging.debug( 'Disabling hits')
 		hits = list(self.mtc.get_all_hits())
 		for hit in hits:
-			mtc.disable_hit(hit.HITId)
+			if not self.testing: self.mtc.disable_hit(hit.HITId)
 		available = sum([int(h.NumberOfAssignmentsAvailable) for h in hits])
 		inProgress = sum([int(h.NumberOfAssignmentsPending) for h in hits])
 		transcriptRequest = urllib2.Request(statusUrl)
@@ -54,30 +54,41 @@ class QuikBoto(object):
 		
 		print '%d in progress, %d available, %d seconds since last upload' % (inProgress, available, status['time'])
 	
-	
-	def CheckTasks(self):
+	def GetStatus(self):
 		hits = list(self.mtc.get_all_hits())
 		available = sum([int(h.NumberOfAssignmentsAvailable) for h in hits])
 		inProgress = sum([int(h.NumberOfAssignmentsPending) for h in hits])
 		transcriptRequest = urllib2.Request(statusUrl)
 		status = json.loads(urllib2.urlopen(transcriptRequest).read())
+		imagesToTranscribe = status['cnt'] == 0
+		timeSinceTranscript = status['time']
 		
-		print '%d in progress, %d available, %d seconds since last upload' % (inProgress, available, status['time'])
+		return inProgress, available, imagesToTranscribe, timeSinceTranscript
+	
+	# get things started
+	def StartTasks(self):
+		inProgress, available, imagesToTranscribe, timeSinceTranscript = self.GetStatus()
+		
+		logging.debug( '%d in progress, %d available, %s: images to transcribe, %d seconds since last upload' % (inProgress, available, imagesToTranscribe, timeSinceTranscript) )
 		if seconds < 120: # ramp it up
 			target = assignmentsPerHit*2
 		else:
 			target = assignmentsPerHit
 		if available < target:
 			for i in range(0, assignmentsPerHit):
-				CreateOCRTask()
-
-def main():
-	if len(sys.argv) == 2 and sys.argv[1] == 'd':
-		DeleteAllHits()
-	else:
-		while True:
-			CheckTasks()
-			time.sleep(sleepTime)
-
-if __name__ == "__main__":
-	main()
+				self.CreateOCRTask()
+	
+	# once everything is recognized, shut it down
+	def FinishTasks(self):
+		inProgress, available, imagesToTranscribe, timeSinceTranscript = self.GetStatus()
+		logging.debug( '%d in progress, %d available, %s: images to transcribe, %d seconds since last upload' % (inProgress, available, imagesToTranscribe, timeSinceTranscript) )
+		if imagesToTranscribe:
+			if seconds < 120: # ramp it up
+				target = assignmentsPerHit*2
+			else:
+				target = assignmentsPerHit
+			if available < target:
+				for i in range(0, assignmentsPerHit):
+					self.CreateOCRTask()
+		else:
+			self.DeleteAllHits()
