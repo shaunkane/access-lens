@@ -16,16 +16,21 @@ class SpeechManager(object):
 	def Beep(self):
 		print '\a'
 		
-	def Say(self, text, interrupt=False):
+	def Say(self, text, interrupt=True, block=False):
 		if interrupt and self.IsSpeaking(): # interrupt, or speak simultaneously
 			self.StopSpeaking()
 		try:
 			print 'Speaking: %s' % text
 			if os.name == 'nt':
-				proc = subprocess.Popen('"C:\Program Files (x86)\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)	
+				if block: proc = subprocess.call('"C:\Program Files (x86)\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)
+				else: 
+					proc = subprocess.Popen('"C:\Program Files (x86)\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)	
+					self.speechProcesses.append(proc)
 			else:
-				proc = subprocess.Popen('say "%s"' % text,shell=True)
-			self.speechProcesses.append(proc)
+				if block: proc = subprocess.call('say "%s"' % text,shell=True)
+				else:
+					proc = subprocess.Popen('say "%s"' % text,shell=True)
+					self.speechProcesses.append(proc)
 		except Exception as e:
 			print "Failed to speak: %s" % e
 			

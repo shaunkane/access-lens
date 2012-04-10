@@ -1,3 +1,4 @@
+
 import cv, numpy, itertools, math, subprocess, sys, collections
 import bg2
 
@@ -89,7 +90,7 @@ def Centroid(points):
 	return (sumX/len(points),sumY/len(points))
 
 def DrawText(img, text, x, y, color=(0,255,0), offset=10): # draw labeled boxes on image. good for showing OCR results eh
-	cv.PutText(img, text, (x, int(y+offset)), FONT, color)
+	cv.PutText(img, text, (int(x), int(y+offset)), FONT, color)
 def DrawPoint(img, point, border=5, thickness=1, color=(255,0,255)):
 	rect = [(point[X]-border, point[Y]-border), (point[X]+border, point[Y]-border),
 			(point[X]+border, point[Y]+border), (point[X]-border, point[Y]+border)]
