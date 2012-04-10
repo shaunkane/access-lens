@@ -8,6 +8,7 @@ import time
 import speechManager
 from studyHelper import *
 from log import *
+import quikBoto
 
 windowTitle = 'ocrTestWindow'
 pickleFile = 'temp.pickle'
@@ -18,6 +19,8 @@ reallyBigRez = (2592,1944)
 vidDepth = 8
 rotate = -90
 processInput = False # we can turn off handleframe
+
+boto = None
 
 img = cv.CreateImage(smallRez, vidDepth, 3)
 imgCopy = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 3)
@@ -40,7 +43,6 @@ handInView = False
 
 speech = speechManager.SpeechManager()
 useCloudOcr = False
-aspectRatio = (11,8.5)
 useThimble = True
 
 # ocr stuff
@@ -128,6 +130,8 @@ def ProcessImage():
 		stuff.corners = []
 		for p in bigCorners: stuff.corners.append([p[0]*scaleFactor,p[1]*scaleFactor])
 		
+		aspectRatio = GetAspectRatio(bigCorners)
+		
 		speech.Say("Document detected. Starting OCR")
 		mediumRect, bigTrans, bigInv = CreateTransform(bigCorners, mediumImage, aspectRatio)
 		# now do it with the small one
@@ -199,7 +203,7 @@ documentOnTable = False
 touched = None
 touchCounter = 0
 touchLimit = 90
-def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff, aspectRatio):
+def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff):
 	global accumulator
 	global bigImage, mediumImage, smallImage 
 	global documentOnTable
@@ -217,6 +221,8 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 				documentOnTable = True
 				stuff.corners = rect
 				# get transforms
+				aspectRatio = GetAspectRatio(rect)
+				
 				imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
 		else:
 			accumulator = 0
@@ -463,6 +469,7 @@ def DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle):
 			#cv.ShowImage(windowTitle, imgFinger)
 		cv.ShowImage(windowTitle, imgCopy)
 	elif stuff.mode == Mode.RECTIFIED:
+		aspectRatio = GetAspectRatio(stuff.corners)
 		imgRect, transform = util.GetRectifiedImage(imgCopy, stuff.corners, aspectRatio)			
 		
 		for i in range(0,len(stuff.boxes)):
@@ -474,18 +481,16 @@ def DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle):
 		cv.ShowImage(windowTitle, imgRect)
 
 
-def CreateTransform(corners, imgCopy, aspectRatio, guessAspectRatio = False):
-	ratio = util.GuessAspectRatio(util.GetSize(corners)) if guessAspectRatio else aspectRatio
-	rectified, transform = util.GetRectifiedImage(imgCopy, corners, ratio)
+def CreateTransform(corners, imgCopy, aspectRatio):
+	rectified, transform = util.GetRectifiedImage(imgCopy, corners, aspectRatio)
 	transformInv = numpy.linalg.inv(transform)
 	return rectified, transform, transformInv
 
 import copy
 	
-def FindTextAreas(imgCopy, imgRect, corners, aspectRatio, guessAspectRatio = False):
-	ratio = util.GuessAspectRatio(util.GetSize(stuff.corners)) if guessAspectRatio else aspectRatio
+def FindTextAreas(imgCopy, imgRect, corners, aspectRatio):
 	speech.Say('Finding text areas')
-	imgRect, transform = util.GetRectifiedImage(imgCopy, corners, ratio)	
+	imgRect, transform = util.GetRectifiedImage(imgCopy, corners, aspectRatio)	
 	ocr = ocr2.OCRManager(imgRect.width, imgRect.height, boxAspectThresh = boxAspectThresh, dilateSteps = dilateSteps, windowSize = windowSize, boxMinSize = boxMinSize)
 	#ocr.ClearOCRTempFiles()
 
@@ -579,6 +584,7 @@ def HandleKey(key):
 	char = chr(key)
 	if char == 'r': # toggle between rectified view
 		if stuff.mode == 0 and len(stuff.corners) == 4: 
+			aspectRatio = GetAspectRatio(stuff.corners)
 			imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
 			stuff.mode = 1
 		else: stuff.mode = 0
@@ -607,7 +613,7 @@ def GetAspectRatio(points, options=((8.5,11),(11,8.5),(5,5))):
 # args: cloud=true|false
 def main():
 	logger.debug('Started')
-	global camera, stuff, rotate, useThimble, useCloudOcr
+	global camera, stuff, rotate, useThimble, useCloudOcr, boto
 	
 	for arg in sys.argv[1:]:
 		pname, pval = arg.split('=')
@@ -623,7 +629,10 @@ def main():
 	
 	cv.NamedWindow(windowTitle, 1) 
 	counter = 0
-	
+
+	if useCloudOCR: 
+		boto = quikBoto.quikBoto(testing=True)
+		boto.StartTasks()
 	while True:
 		key = cv.WaitKey(10)
 		if key == 27: break		
@@ -635,9 +644,13 @@ def main():
 		cv.Zero(imgMasked)
 		cv.Copy(imgCopy,imgMasked,imgBG) # now we have a masked image!
 
-		HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff, aspectRatio)
+		HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff)
 		DrawWindow(img, imgCopy, imgRect, imgHSV, imgFinger, stuff, windowTitle)
 		counter += 1
+		
+		if counter % 300 == 0 and useCloudOCR:
+			if len(boxesToComplete.keys()) > 0: boto.StartTasks()
+			else: boto.EndTasks()
 
 	# save for later
 	timestamp = int(time.time()*1000)
