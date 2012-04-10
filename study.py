@@ -130,7 +130,7 @@ def ProcessImage():
 	edge = util.GetEdge(frame=gray)
 	bigCorners = util.FindLargestRectangle(edge, gray)
 	
-	speech.Say('Locating document')
+	#speech.Say('Locating document')
 	#util.GetGrayscale(imgCopy, imgGray)
 	#util.GetEdge(frame=imgGray, edge=imgEdge)
 	#rect = util.FindLargestRectangle(imgEdge, imgGray)
@@ -142,7 +142,7 @@ def ProcessImage():
 		
 		aspectRatio = GetAspectRatio(bigCorners)
 		
-		speech.Say("Document detected. Starting OCR")
+		#speech.Say("Document detected. Starting OCR")
 		mediumRect, bigTrans, bigInv = CreateTransform(bigCorners, mediumImage, aspectRatio)
 		# now do it with the small one
 		imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
@@ -466,6 +466,11 @@ def DoCloudOCR(oimg, orect, corners, boxes):
 
 	cloudKeys = cloudKeys.split(',')
 
+	# run quickBoto
+	logging.debug('Starting mturk')
+	quikBoto.Run()
+	logging.debug('Quitting mturk')
+	
 	while len(boxesToComplete.keys()) > 0:
 		url = 'http://umbc-cloud.appspot.com/status2'
 		req = urllib2.Request(url)
@@ -650,7 +655,14 @@ def HandleKey(key):
 	elif char == 'p':
 		ProcessImage()
 	elif char == '1':
-		LoadCheat('saved/maryland.pickle')
+		LoadCheat('saved/d1.pickle')
+	elif char == '2':
+		LoadCheat('saved/d2.pickle')
+	elif char == '3':
+		LoadCheat('saved/d3.pickle')		
+	elif char == '4':
+		LoadCheat('saved/d4.pickle')	
+		
 		
 camera = None
 
@@ -667,7 +679,7 @@ def main():
 	global camera, stuff, rotate, useThimble, useCloudOcr, boto
 	
 	if len(sys.argv) == 2 and sys.argv[1] == '-h':
-		print 'python study.py rotate=(rot) thimble=(true|false) cloud=(true|false) overlays=(edge|search|all|none)'
+		print 'python study.py rotate=(rot) thimble=(true|false) cloud=(true|false) overlay =(edge|search|all|none)'
 		sys.exit()
 	
 	for arg in sys.argv[1:]:
@@ -675,7 +687,7 @@ def main():
 		if pname == 'rotate': rotate = int(pval)
 		elif pname == 'thimble': useThimble = pval.lower() == 'true'
 		elif pname == 'cloud': useCloudOcr = pval.lower() == 'true'	
-		elif pname == 'overlays':
+		elif pname == 'overlay':
 			global overlayMode
 			if pval.lower() == 'all': overlayMode=OverlayMode.EDGE_PLUS_SEARCH
 			elif pval.lower() == 'search': overlayMode=OverlayMode.SEARCH
@@ -690,9 +702,6 @@ def main():
 	cv.NamedWindow(windowTitle, 1) 
 	counter = 0
 
-	if useCloudOcr: 
-		boto = quikBoto.QuikBoto()
-		#boto.StartTasks()
 	while True:
 		key = cv.WaitKey(10)
 		if key == 27: break		

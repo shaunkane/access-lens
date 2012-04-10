@@ -4,6 +4,10 @@ from boto.mturk.question import QuestionForm, ExternalQuestion
 import time
 import sys
 import json
+import log
+import logging
+
+logging.getLogger('boto').setLevel(logging.CRITICAL)
  
 ACCESS_ID ='0QTWFA25NHV69QZV7JG2'
 SECRET_KEY = 'tA/iP8BAfPeBpOPJhn/NBGpf8CeUaM4PEaEQealS'
@@ -52,7 +56,7 @@ def DeleteAllHits():
 	print '%d in progress, %d available, %d seconds since last upload' % (inProgress, available, status['time'])
 
 taskStarted = False
-
+running = True
 def CheckTasks():
 	global taskStarted
 	hits = list(mtc.get_all_hits())
@@ -63,12 +67,13 @@ def CheckTasks():
 	
 	count = status['cnt']
 	if not taskStarted and count == 0:
-		print 'Task uploaded'
+		logging.debug( 'Task uploaded')
 		taskStarted = True
 	elif taskStarted and count > 0:
-		print 'Task completed!'
+		logging.debug('Task completed!')
 		DeleteAllHits()
-		sys.exit()
+		global running
+		running = False
 		
 	print '%d in progress, %d available, %d seconds since last upload' % (inProgress, available, status['time'])
 	if taskStarted:
@@ -79,13 +84,10 @@ def CheckTasks():
 		for i in range(0, assignmentsPerHit):
 			CreateOCRTask()
 
-def main():
-	if len(sys.argv) == 2 and sys.argv[1] == 'd':
-		DeleteAllHits()
-	else:
-		while True:
-			CheckTasks()
-			time.sleep(sleepTime)
+def Run():
+	while running:
+		CheckTasks()
+		time.sleep(sleepTime)
 
 if __name__ == "__main__":
 	main()
