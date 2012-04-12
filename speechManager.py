@@ -1,6 +1,8 @@
 import subprocess, multiprocessing, os
 # if windows, we use espeak: http://espeak.sourceforge.net
 
+import speech
+
 class SpeechManager(object):
 	def __init__(self, useQueue = True):
 		# keep track of speech processes we generate

@@ -20,7 +20,7 @@ bigRez = (1280,960)
 reallyBigRez = (2592,1944)
 vidDepth = 8
 rotate = -90
-processInput = False # we can turn off handleframe
+processInput = True # we can turn off handleframe
 
 boto = None
 
@@ -100,7 +100,7 @@ def CaptureImages():
 	# background
 	size = smallRez if rotate == 0 else (smallRez[1],smallRez[0])
 	bgModel = bg2.BackgroundModel(size[0], size[1], yThreshold=20, fitThreshold=16, yccMode=0)
-	
+	 
 	trainImages = 30
 	logging.debug('Training background')
 	for i in range(0, trainImages):
@@ -137,7 +137,7 @@ def ProcessImage():
 	if len(bigCorners) == 4 and util.BoundingRectArea(bigCorners) > 400:
 		# squish corners down
 	
-		stuff.corners = []
+		# stuff.corners = []
 		for p in bigCorners: stuff.corners.append([p[0]*scaleFactor,p[1]*scaleFactor])
 		
 		aspectRatio = GetAspectRatio(bigCorners)
@@ -163,8 +163,10 @@ def ProcessImage():
 
 def CreateOverlays():
 	stuff.overlays = {}
-	if overlayMode == OverlayMode.EDGE or overlayMode == OverlayMode.EDGE_PLUS_SEARCH and len(stuff.text.keys()) > 0:
+	if overlayMode == OverlayMode.EDGE or overlayMode == OverlayMode.EDGE_PLUS_SEARCH or overlayMode == OverlayMode.SEARCH and len(stuff.text.keys()) > 0:
 		global rectWidth, rectHeight
+		aspectRatio = GetAspectRatio(stuff.corners)
+		imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
 		rectWidth = imgRect.width
 		rectHeight = imgRect.height
 		docWidth = rectWidth
@@ -194,7 +196,7 @@ def CreateOverlays():
 		overlayX = -overlayWidth/2
 		overlayY = docHeight - overlayWidth/2
 		
-		stuff.searchButton = [overlayX, overlayY, overlayWidth, overlayHeight]
+		stuff.searchButton = [overlayX, overlayY, overlayWidth, overlayHeight*4]
 				
 def StartOcr():
 	global boxesToComplete
@@ -238,7 +240,7 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 			accumulator += 1
 			if accumulator == 60:
 				accumulator = 0
-				speech.Say('Document detected')
+				So when .Say('Document detected')
 				documentOnTable = True
 				stuff.corners = rect
 				# get transforms
@@ -655,13 +657,13 @@ def HandleKey(key):
 	elif char == 'p':
 		ProcessImage()
 	elif char == '1':
-		LoadCheat('saved/d1.pickle')
+		LoadCheat('saved/maryland.pickle')
 	elif char == '2':
-		LoadCheat('saved/d2.pickle')
+		LoadCheat('saved/mall.pickle')
 	elif char == '3':
-		LoadCheat('saved/d3.pickle')		
+		LoadCheat('saved/target.pickle')		
 	elif char == '4':
-		LoadCheat('saved/d4.pickle')	
+		LoadCheat('saved/pyramid.pickle')	
 		
 		
 camera = None
