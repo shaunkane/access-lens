@@ -23,6 +23,8 @@ rotate = -90
 processInput = True # we can turn off handleframe
 
 boto = None
+touchLimit = 30
+
 
 img = cv.CreateImage(smallRez, vidDepth, 3)
 imgCopy = cv.CreateImage((smallRez[1],smallRez[0]), vidDepth, 3)
@@ -225,7 +227,6 @@ accumulator = 0
 documentOnTable = False
 touched = None
 touchCounter = 0
-touchLimit = 10
 def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, counter, stuff):
 	global accumulator
 	global bigImage, mediumImage, smallImage 

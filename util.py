@@ -129,7 +129,7 @@ def RotateImage(img, dest=None, angle=90): # angle in degrees
 		cv.Flip(dest,dest,flipMode=-1)
 	elif angle==0: # 180
 		cv.Copy(img,dest)
-		return dest
+	return dest
 # end image processing
 
 # homography and perspective transform
