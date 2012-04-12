@@ -440,6 +440,11 @@ def CallOCREngine(fileID, workingDirectory=ocr2.DefaultWorkingDirectory, recogni
 def LoadCheat(cheatFile):
 	global stuff
 	cheat = pickle.load(open(cheatFile, 'rb'))
+	if stuff.corners is None or len(stuff.corners) < 4: 
+		stuff.corners = cheat.corners
+		aspectRatio = GetAspectRatio(stuff.corners)
+		rectified, stuff.transform = util.GetRectifiedImage(imgCopy, stuff.corners, aspectRatio)
+		stuff.transformInv = numpy.linalg.inv(stuff.transform)
 	stuff.boxes = cheat.boxes
 	#stuff.overlays = cheat.overlays
 	stuff.text = cheat.text
