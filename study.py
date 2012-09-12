@@ -23,7 +23,7 @@ rotate = -90
 processInput = True # we can turn off handleframe
 
 boto = None
-touchLimit = 20
+touchLimit = 30
 
 
 img = cv.CreateImage(smallRez, vidDepth, 3)
@@ -70,51 +70,6 @@ rectHeight = 0
 
 # capture big, medium, small images
 def CaptureImages():
-<<<<<<< HEAD
-	global bigImage, mediumImage, smallImage, newImageToProcess, bgModel
-	speech.Say('Capturing images')
-	
-	timestamp = int(time.time()*1000)
-	sname = 'logs/small-%d.png' % timestamp
-	mname = 'logs/med-%d.png' % timestamp
-	lname = 'logs/large-%d.png' % timestamp
-	
-	# first, large
-	SetResolution(reallyBigRez)
-	lgFrame = cv.QueryFrame(camera)
-	bigImage = util.RotateImage(lgFrame, None, rotate)
-	cv.SaveImage(lname, bigImage)
-	print 'Saved big image: %s' % lname
-	
-	# medium
-	SetResolution(bigRez)
-	mdFrame = cv.QueryFrame(camera)
-	mediumImage = util.RotateImage(mdFrame, None, rotate)
-	cv.SaveImage(mname, mediumImage)
-	print 'Saved medium image: %s' % mname
-	
-	# small
-	SetResolution(smallRez)
-	smFrame = cv.QueryFrame(camera)
-	smallImage = util.RotateImage(smFrame, None, rotate)
-	cv.SaveImage(sname, smallImage)
-	print 'Saved small image: %s' % sname
-	
-	# IF IT BREAKS, HERE IS WHY
-	aspectRatio = GetAspectRatio(stuff.corners)
-	imgRect, transform, transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
-	global rectWidth, rectHeight
-	rectWidth = imgRect.width
-	rectHeight = imgRect.height
-	
-	# background
-	size = smallRez if rotate == 0 else (smallRez[1],smallRez[0])
-	bgModel = bg2.BackgroundModel(size[0], size[1], yThreshold=20, fitThreshold=16, yccMode=0)
-	 
-	trainImages = 30
-	logging.debug('Training background')
-	for i in range(0, trainImages):
-=======
 	if len(stuff.corners) == 4:
 		global bigImage, mediumImage, smallImage, newImageToProcess, bgModel
 		print 'Capturing images'
@@ -140,7 +95,6 @@ def CaptureImages():
 		
 		# small
 		SetResolution(smallRez)
->>>>>>> About to get into things
 		smFrame = cv.QueryFrame(camera)
 		smallImage = util.RotateImage(smFrame, None, rotate)
 		cv.SaveImage(sname, smallImage)
@@ -186,8 +140,8 @@ def ProcessImage():
 	if len(bigCorners) == 4 and util.BoundingRectArea(bigCorners) > 400:
 		# squish corners down
 	
-		#stuff.corners = []
-		#for p in bigCorners: stuff.corners.append([p[0]*scaleFactor,p[1]*scaleFactor])
+		# stuff.corners = []
+		for p in bigCorners: stuff.corners.append([p[0]*scaleFactor,p[1]*scaleFactor])
 		
 		aspectRatio = GetAspectRatio(bigCorners)
 		
@@ -222,8 +176,7 @@ def CreateOverlays():
 		docHeight = rectHeight
 		overlayWidth = docWidth*.2
 		overlayHeight = float(docHeight) / len(stuff.text.keys())
-		# fix - moved this here
-		overlayX = docWidth
+		overlayX = docWidth - overlayWidth/2
 		overlayLookup = {}
 	
 		# get reverse overlay lookup
@@ -287,7 +240,7 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 		rect = util.FindLargestRectangle(imgEdge, imgGray)
 		if len(rect) == 4 and util.BoundingRectArea(rect) > 25000:
 			accumulator += 1
-			if accumulator == 120:
+			if accumulator == 60:
 				accumulator = 0
 				speech.Say('Document detected')
 				documentOnTable = True
@@ -304,7 +257,7 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 		rect = util.FindLargestRectangle(imgEdge, imgGray)
 		if len(rect) != 4 or util.BoundingRectArea(rect) < 25000:
 			accumulator += 4
-			if accumulator == 6000:
+			if accumulator == 60:
 				speech.Say('Document removed')
 				documentOnTable = False
 				stuff.corners = []
@@ -319,8 +272,6 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 		doc = [0,0,rectWidth,rectHeight]
 		
 		fingerTrans = util.Transform(stuff.finger, stuff.transform)
-		
-		# print doc, fingerTrans
 		
 		# what are we touching? overlay, search button, in paper, item
 		fingerHandled = False
@@ -353,16 +304,6 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 					util.beep()
 					items = [word.split(' ')[0] for word in stuff.text.values()]
 					allWords = [phrase.split(' ') for phrase in items]
-<<<<<<< HEAD
-					command = speech.listen(phrases=stuff.text.values())
-					if command is not None and command != '':
-						for key in stuff.text.keys():
-							text = stuff.text[key]
-							if command in text: # found it
-								tracking = key
-								speech.Say('Finding %s' % stuff.text[key])
-								break
-=======
 					
 					try:
 						command = speech.listen(phrases=allWords)
@@ -376,7 +317,6 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 
 					except KeyboardInterrupt:
 						print 'Speech canceled'
->>>>>>> About to get into things
 		# inside an item?
 		for box in stuff.boxes:
 			if not fingerHandled and util.PointInsideRect(fingerTrans, box):
@@ -388,12 +328,10 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 					
 		# otherwise, if inside page, find the nearest rect
 		if not fingerHandled and util.PointInsideRect(fingerTrans, doc):
-			# print 'looking'
 			# get the center of each rect, which is the closest?
 			validBoxes = []
 			for i in range(0, len(stuff.boxes)):
 				if stuff.text.has_key(i): validBoxes.append(stuff.boxes[i])
-			# print validBoxes
 			centers = [(p[0]+p[2]/2,p[1]+p[3]/2) for p in validBoxes]
 			closestBox = centers.index(min(centers, key=lambda c: util.Distance(c, fingerTrans)))
 			box = validBoxes[closestBox]
@@ -433,7 +371,7 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 		if inside:
 			speech.Say('Located %s' % stuff.text[tracking])
 			tracking = None
-		elif counter % 6 == 0:
+		elif counter % 10 == 0:
 			speech.Say(direction)
 	
 # modified from http://www.davidhampgonsalves.com/2011/05/OpenCV-Python-Color-Based-Object-Tracking
@@ -509,7 +447,6 @@ def LoadCheat(cheatFile):
 	global stuff
 	cheat = pickle.load(open(cheatFile, 'rb'))
 	if stuff.corners is None or len(stuff.corners) < 4: 
-		print 'no corners'
 		stuff.corners = cheat.corners
 		aspectRatio = GetAspectRatio(stuff.corners)
 		rectified, stuff.transform = util.GetRectifiedImage(imgCopy, stuff.corners, aspectRatio)

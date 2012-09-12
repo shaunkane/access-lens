@@ -1,7 +1,7 @@
 import subprocess, multiprocessing, os
 # if windows, we use espeak: http://espeak.sourceforge.net
 
-import speech
+if os.name == 'nt': import sapi
 
 class SpeechManager(object):
 	def __init__(self, useQueue = True):
@@ -24,9 +24,9 @@ class SpeechManager(object):
 		try:
 			print 'Speaking: %s' % text
 			if os.name == 'nt':
-				if block: proc = subprocess.call('"C:\Program Files (x86)\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)
+				if block: proc = subprocess.call('"C:\Program Files\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)
 				else: 
-					proc = subprocess.Popen('"C:\Program Files (x86)\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)	
+					proc = subprocess.Popen('"C:\Program Files\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)	
 					self.speechProcesses.append(proc)
 			else:
 				if block: proc = subprocess.call('say "%s"' % text,shell=True)
@@ -42,19 +42,17 @@ class SpeechManager(object):
 		self.speechProcesses = []
 		self.queue = []
 	
-	def listen(self, phrases=None):
+	def listen(self, phrases, timeout=10):
 		if os.name == 'nt':
-			text = speech.input(phraselist=phrases)
+			text = sapi.listenForWords(phrases, timeout)
 			return text
 		else:
 			print 'Speech recognition currently not supported'
 			return None
 
-def main(): # test
+if __name__ == "__main__":
 	s = SpeechManager()
 	s.Say('this is a test of the emergency speech system')
 	for i in xrange(0,50000):
 		print s.IsSpeaking()
 	s.StopSpeaking()
-
-if __name__ == "__main__": main()
