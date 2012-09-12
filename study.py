@@ -70,6 +70,7 @@ rectHeight = 0
 
 # capture big, medium, small images
 def CaptureImages():
+<<<<<<< HEAD
 	global bigImage, mediumImage, smallImage, newImageToProcess, bgModel
 	speech.Say('Capturing images')
 	
@@ -113,11 +114,50 @@ def CaptureImages():
 	trainImages = 30
 	logging.debug('Training background')
 	for i in range(0, trainImages):
+=======
+	if len(stuff.corners) == 4:
+		global bigImage, mediumImage, smallImage, newImageToProcess, bgModel
+		print 'Capturing images'
+		
+		timestamp = int(time.time()*1000)
+		sname = 'logs/small-%d.png' % timestamp
+		mname = 'logs/med-%d.png' % timestamp
+		lname = 'logs/large-%d.png' % timestamp
+		
+		# first, large
+		SetResolution(reallyBigRez)
+		lgFrame = cv.QueryFrame(camera)
+		bigImage = util.RotateImage(lgFrame, None, rotate)
+		cv.SaveImage(lname, bigImage)
+		print 'Saved big image: %s' % lname
+		
+		# medium
+		SetResolution(bigRez)
+		mdFrame = cv.QueryFrame(camera)
+		mediumImage = util.RotateImage(mdFrame, None, rotate)
+		cv.SaveImage(mname, mediumImage)
+		print 'Saved medium image: %s' % mname
+		
+		# small
+		SetResolution(smallRez)
+>>>>>>> About to get into things
 		smFrame = cv.QueryFrame(camera)
 		smallImage = util.RotateImage(smFrame, None, rotate)
-		bg2.FindBackground(smallImage, imgFG, bgModel)
-	logging.debug('Background training complete')
-	newImageToProcess = True
+		cv.SaveImage(sname, smallImage)
+		print 'Saved small image: %s' % sname
+		
+		# background
+		size = smallRez if rotate == 0 else (smallRez[1],smallRez[0])
+		bgModel = bg2.BackgroundModel(size[0], size[1], yThreshold=20, fitThreshold=16, yccMode=0)
+		 
+		trainImages = 30
+		logging.debug('Training background')
+		for i in range(0, trainImages):
+			smFrame = cv.QueryFrame(camera)
+			smallImage = util.RotateImage(smFrame, None, rotate)
+			bg2.FindBackground(smallImage, imgFG, bgModel)
+		logging.debug('Background training complete')
+		newImageToProcess = True
 
 # get text areas and start OCR
 
@@ -313,6 +353,7 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 					util.beep()
 					items = [word.split(' ')[0] for word in stuff.text.values()]
 					allWords = [phrase.split(' ') for phrase in items]
+<<<<<<< HEAD
 					command = speech.listen(phrases=stuff.text.values())
 					if command is not None and command != '':
 						for key in stuff.text.keys():
@@ -321,6 +362,21 @@ def HandleFrame(img, imgCopy, imgGray, imgEdge, imgRect, imgHSV, imgFinger, coun
 								tracking = key
 								speech.Say('Finding %s' % stuff.text[key])
 								break
+=======
+					
+					try:
+						command = speech.listen(phrases=allWords)
+						if command is not None and command != '':
+							for key in stuff.text.keys():
+								text = stuff.text[key]
+								if command in text: # found it
+									tracking = key
+									speech.Say('Finding %s' % stuff.text[key])
+									break
+
+					except KeyboardInterrupt:
+						print 'Speech canceled'
+>>>>>>> About to get into things
 		# inside an item?
 		for box in stuff.boxes:
 			if not fingerHandled and util.PointInsideRect(fingerTrans, box):
@@ -656,33 +712,38 @@ def SetResolution(rez):
 		
 def HandleKey(key):
 	global imgRect, stuff
-	char = chr(key)
-	if char == 'r': # toggle between rectified view
-		if stuff.mode == 0 and len(stuff.corners) == 4: 
-			aspectRatio = GetAspectRatio(stuff.corners)
-			imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
-			stuff.mode = 1
-		else: stuff.mode = 0
-	elif char == 'b':
-		ToggleResolution()
-	elif char == 't':
-		global processInput
-		processInput = not processInput
-		print 'Processing input? %s' % processInput
-	elif char == 'c':
-		CaptureImages()
-	elif char == 'o':
-		StartOcr()
-	elif char == 'p':
-		ProcessImage()
-	elif char == '1':
-		LoadCheat('saved/maryland.pickle')
-	elif char == '2':
-		LoadCheat('saved/mall.pickle')
-	elif char == '3':
-		LoadCheat('saved/target.pickle')		
-	elif char == '4':
-		LoadCheat('saved/pyramid.pickle')	
+	char = -1
+	try:
+		char = chr(key)
+	except Exception as e:
+		'Some key junk'
+	finally:
+		if char == 'r': # toggle between rectified view
+			if stuff.mode == 0 and len(stuff.corners) == 4: 
+				aspectRatio = GetAspectRatio(stuff.corners)
+				imgRect, stuff.transform, stuff.transformInv = CreateTransform(stuff.corners, imgCopy, aspectRatio)
+				stuff.mode = 1
+			else: stuff.mode = 0
+		elif char == 'b':
+			ToggleResolution()
+		elif char == 't':
+			global processInput
+			processInput = not processInput
+			print 'Processing input? %s' % processInput
+		elif char == 'c':
+			CaptureImages()
+		elif char == 'o':
+			StartOcr()
+		elif char == 'p':
+			ProcessImage()
+		elif char == '1':
+			LoadCheat('saved/maryland.pickle')
+		elif char == '2':
+			LoadCheat('saved/mall.pickle')
+		elif char == '3':
+			LoadCheat('saved/target.pickle')		
+		elif char == '4':
+			LoadCheat('saved/pyramid.pickle')	
 		
 		
 camera = None

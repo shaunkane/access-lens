@@ -1,0 +1,4 @@
+2012-04-12 10:09:27,279 - DEBUG - This is a test log message.
+2012-04-12 10:09:27,465 - DEBUG - Started
+2012-04-12 10:09:57,027 - DEBUG - Guessed aspect ratio! 11.000000:8.500000
+2012-04-12 10:10:05,794 - DEBUG - Training background
