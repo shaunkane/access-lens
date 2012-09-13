@@ -1,3 +1,4 @@
+# now finding text only
 import numpy, os, cv, uuid, subprocess
 cimport numpy, cython
 
@@ -23,10 +24,6 @@ import urllib2
 cloudURL = 'http://umbc-cloud.appspot.com/upload'
 register_openers()
 
-# send to the cloud, and wait until the response appears
-# save the 
-def DoCloudOCR(filename):
-	pass
 
 class OCRManager(object): # manage OCR for a single set of images
 	def __init__(self, width, height, boxAspectThresh = 0, boxMinSize = 30, windowSize = 12, expand = .01, foregroundWeight = 0.3, dilateSteps = 5, laplaceLevel = 3, useCloud = False):
@@ -60,32 +57,6 @@ class OCRManager(object): # manage OCR for a single set of images
 			if ratio > self.boxAspectThresh and box[WIDTH] > self.boxMinSize and box[HEIGHT] > self.boxMinSize and box[WIDTH]*box[HEIGHT] > self.boxMinSize*3:
 				boxes2.append(box)
 		return boxes2
-	
-		
-	def CreateTempFile(self, cvImage, boxRect, boxID):
-		imageName = 'box%d.%s' % (boxID, DefaultFileType)
-		cv.SetImageROI(cvImage, boxRect)
-		cv.SaveImage(os.path.join(DefaultWorkingDirectory,imageName), cvImage)
-		cv.ResetImageROI(cvImage)
-		return imageName
-
-	def CallOCREngine(self, fileID, workingDirectory=DefaultWorkingDirectory, recognizer=DefaultRecognizer, tag=None):
-		if recognizer == Recognizer.CLOUD:
-			pass
-		elif recognizer == Recognizer.OCROPUS:
-			outputName = str(fileID) + '.txt'
-			proc = subprocess.Popen('ocropus page box%s.%s > %s' % (fileID,DefaultFileType,outputName), cwd=workingDirectory, shell=True)
-			return outputName, proc
-		elif recognizer == Recognizer.TESSERACT:
-			outputName = 'box' + str(fileID)
-			proc = subprocess.Popen('tesseract box%s.%s %s -l eng' % (fileID,DefaultFileType,outputName), cwd=workingDirectory, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			proc.wait()
-			return (open(os.path.join(DefaultWorkingDirectory,outputName+'.txt')).read().strip(), tag)
-	
-	def ClearOCRTempFiles(self, workingDirectory=DefaultWorkingDirectory, fileTypes = ['txt','tiff','png']):
-		for fname in os.listdir(workingDirectory):
-			if fname.partition('.')[2] in fileTypes:
-				os.unlink(os.path.join(workingDirectory, fname))
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

@@ -47,7 +47,7 @@ class SpeechManager(object):
 			text = sapi.listenForWords(phrases, timeout)
 			return text
 		else:
-			print 'Speech recognition currently not supported'
+			print 'Speech recognition currently not supported on Mac'
 			return None
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ defaultCamIndex=0
 dwell_time = 60 # in frames
 
 # video sizes: 2592x1944, 1920x1080, 3648x2736?
-sizeSmall = (640,480)
+sizeSmall = (1600,1200)
 sizeLarge = (800,600)
 sizeHalf = (int(sizeLarge[X]*bgModelScale), int(sizeLarge[Y]*bgModelScale))
 

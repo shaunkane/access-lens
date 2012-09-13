@@ -1,3 +1,5 @@
+# demo version, not study version
+
 import cv, numpy, sys, json, math, collections, traceback
 import ocr2, util, bg2, camera, gui, hand2, dict, speechManager, tracker
 from settings import *
