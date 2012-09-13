@@ -103,7 +103,7 @@ def DoCloudOCR(fname):
 	else: return ''
 
 
-# main
+# main	
 if __name__ == "__main__":
 	# filename
 	fname = sys.argv[1]
