@@ -89,9 +89,9 @@ cpdef _FindTextAreas(numpy.ndarray[numpy.int16_t, ndim=2] laplace, numpy.ndarray
 			else:
 				mgdValues[j,i] = 0
 
-	if verbose == 1: cv.SaveImage('output/mgd-2.png', cv.fromarray(mgdValues))
+	if verbose == 1: cv.SaveImage('ocrtemp/mgd-2.png', cv.fromarray(mgdValues))
 	cv.Dilate(cv.fromarray(mgdValues),cv.fromarray(mgdValues),None,dilateSteps)
-	if verbose == 1: cv.SaveImage('output/mgd-3.png', cv.fromarray(mgdValues))
+	if verbose == 1: cv.SaveImage('ocrtemp/mgd-3.png', cv.fromarray(mgdValues))
 	storage = cv.CreateMemStorage(0)
 	contour = cv.FindContours(cv.fromarray(mgdValues), storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE, (0, 0))
 	boxes = []

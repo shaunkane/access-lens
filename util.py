@@ -16,6 +16,11 @@ Y = 1
 WIDTH = 2
 HEIGHT = 3
 
+def distance(p1,p2): # distance between points
+	return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
+def removeNonAscii(s): return "".join(filter(lambda x: ord(x)<128, s))
+
 # image conversion
 def GetYCC(img, dest=None):
 	if dest == None: dest = cv.CreateImage((img.width,img.height),img.depth,img.nChannels)

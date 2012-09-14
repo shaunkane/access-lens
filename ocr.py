@@ -9,24 +9,23 @@ def ClearOCRTempFiles(workingDirectory='./ocrtemp/', fileTypes = ['txt','tiff','
 
 # ocr engine is tesseract or abbyy
 # cloud fix later if we have time...
-def CallOCREngine(image, box, fileID, lock, workingDirectory='./ocrtemp/', recognizer = 'tesseract'):
-	if lock is not None: lock.acquire()
-	fname = CreateTempFile(image, box, fileID)
-	if lock is not None: lock.release()
+def CallOCREngine(fileID, workingDirectory='./ocrtemp/', recognizer = 'tesseract'):
+	fname = CreateTempFile(image=None, box=None, fileID=fileID) # just get the name
 	
 	result = ''
 	if recognizer == 'tesseract':
 		result = ocr_tesseract(fileID,fname,workingDirectory)
 	elif recognizer == 'abbyy':
-		result = ocr_abbyy(fname)
+		result = ocr_abbyy(workingDirectory+fname)
 	
 	return (result, fileID)
 
-def CreateTempFile(image, box, fileID):
-	imageName = 'box%d.%s' % (boxID, 'png')
+def CreateTempFile(image, box, fileID, workingDirectory='./ocrtemp/'):
+	imageName = 'box%d.%s' % (fileID, 'png')
+		
 	if image is not None:
 		cv.SetImageROI(image, box)
-		cv.SaveImage(os.path.join(DefaultWorkingDirectory,imageName), image)
+		cv.SaveImage(os.path.join(workingDirectory,imageName), image)
 		cv.ResetImageROI(image)
 	return imageName
 
@@ -37,10 +36,10 @@ def CreateTempFile(image, box, fileID):
 def ocr_abbyy(fname):
 	return abbyy.DoCloudOCR(fname)
 
-def ocr_tesseract(fileID,fname,workingDirectory):
-	output = 'out%s.txt' % fileID
-	proc = subprocess.Popen('tesseract %s %s -l eng' % (fname,output), cwd=workingDirectory, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def ocr_tesseract(fileID,fname,workingDirectory='./ocrtemp/'):
+	output = 'out%s' % fileID
+	proc = subprocess.Popen('tesseract %s %s -l eng alphanumeric' % (fname,output), cwd=workingDirectory, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	
 	
 	proc.wait()
-	return open(os.path.join(workingDirectory,output)).read().strip()
+	return open(os.path.join(workingDirectory,'%s.txt' % output)).read().strip()

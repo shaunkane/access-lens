@@ -1,0 +1,3 @@
+2012-09-13 04:47:19,957 - DEBUG - This is a test log message.
+2012-09-13 04:47:20,026 - DEBUG - Started
+2012-09-13 04:47:26,336 - DEBUG - Guessed aspect ratio! 8.500000:11.000000

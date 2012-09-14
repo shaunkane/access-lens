@@ -5,6 +5,7 @@
 import argparse, base64, getopt, MultipartPostHandler, os, re, sys, time, urllib2, urllib, xml.dom.minidom
 import StringIO
 import xml.etree.ElementTree as ET
+import util
 
 class Task:
 	Status = "Unknown"
@@ -97,7 +98,7 @@ def DoCloudOCR(fname):
 		root = ET.fromstring(xml)
 		try:
 			text = root.find('{@link}field').find('{@link}value').text
-			return text
+			return util.removeNonAscii(text)
 		except Exception:
 			return ''
 	else: return ''
