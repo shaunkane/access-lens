@@ -76,9 +76,9 @@ cdef class BackgroundModel:
 cdef short FOREGROUND, BACKGROUND, SHADOW, SKIN, MAYBE_SKIN
 FOREGROUND = 255
 BACKGROUND = 0
-SHADOW = 50
-SKIN = 128
-MAYBE_SKIN = 90
+SHADOW = 0
+SKIN = 255
+MAYBE_SKIN = 0
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -103,7 +103,7 @@ cpdef _FindSkin(numpy.ndarray[numpy.uint8_t, ndim=3] ycc, numpy.ndarray[numpy.ui
 				cr = ycc[y,x,1]
 				cb = ycc[y,x,2]
 				# changed from 80 to 50
-				if yy > 50 and cb > 85 and cb < 135 and cr > 135 and cr < 180:
+				if yy > 80 and cb > 85 and cb < 135 and cr > 135 and cr < 180:
 					bg[y,x] = SKIN
 				elif showMaybeSkin == 1 and yy > 80 and cb > 80 and cb < 140 and cr > 130 and cr < 185:
 					bg[y,x] = MAYBE_SKIN

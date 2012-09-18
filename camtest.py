@@ -8,7 +8,7 @@ windowTitle = 'camtest'
 camSmall = (640,480)
 camLarge = (2592,1944)
 vidDepth = 8
-rotate = -90
+rotate = 0
 
 # bg params
 yThreshold = 20
@@ -21,8 +21,9 @@ camSize = camLarge if len(sys.argv) > 1 and sys.argv[1] == '1' else camSmall
 print camSize
 
 # create the images we need
-imgCopy = cv.CreateImage((camSize[1],camSize[0]), vidDepth, 3) # a rotated copy	
-imgFG = cv.CreateImage((camSize[1],camSize[0]), vidDepth, 1)
+imSize = reversed(camSize) if rotate == -90 or rotate == 90 else camSize
+imgCopy = cv.CreateImage(imSize, vidDepth, 3) # a rotated copy
+imgFG = cv.CreateImage(imSize, vidDepth, 1)
 
 # set up cam
 camera = cv.CaptureFromCAM(0)
@@ -32,7 +33,7 @@ img = cv.QueryFrame(camera)
 util.RotateImage(img, imgCopy, rotate)
 
 # bg
-bgModel = bg2.BackgroundModel(camSmall[1], camSmall[0], yThreshold=yThreshold, fitThreshold=fitThreshold, yccMode=yccMode)
+bgModel = bg2.BackgroundModel(imSize[0], imSize[1], yThreshold=yThreshold, fitThreshold=fitThreshold, yccMode=yccMode)
 
 cv.NamedWindow('camtest', 1) 
 

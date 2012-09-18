@@ -1,0 +1,3 @@
+2012-09-17 00:50:36,279 - DEBUG - This is a test log message.
+2012-09-17 00:50:36,404 - DEBUG - Started
+2012-09-17 00:51:17,513 - DEBUG - Ended

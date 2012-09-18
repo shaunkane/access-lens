@@ -17,7 +17,7 @@ class DictionaryManager(object):
 		return len(word) > 2
 
 	def WordInDictionary(self, word):
-		return self.dictionary.Contains(word) or self.userDict.Contains(word)
+		return self.dictionary.Contains(word.lower()) or self.userDict.Contains(word.lower())
 	
 	def BestMatch(self, word, maxDistance=None):
 		if maxDistance is None: maxDistance = self.maxDistance

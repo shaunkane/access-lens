@@ -1,0 +1,1 @@
+2012-09-17 00:52:05,644 - DEBUG - This is a test log message.

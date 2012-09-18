@@ -1,4 +1,4 @@
-import subprocess, multiprocessing, os, sys
+import subprocess, multiprocessing, os, sys, time
 # if windows, we use espeak: http://espeak.sourceforge.net
 
 if os.name == 'nt': import sapi
@@ -9,27 +9,31 @@ class SpeechManager(object):
 		self.speechProcesses = []
 		self.queue = []
 		self.useQueue = useQueue
+		self.lastSaid = {}
 	
 	def Beep(self):
 		print '\a'
 		
 	def Say(self, text, interrupt=True, block=False):
-		if interrupt: # interrupt, or speak simultaneously
-			self.StopSpeaking()
-		try:
-			print 'Speaking: %s' % text
-			if os.name == 'nt':
-				if block: proc = subprocess.call('"C:\Program Files\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)
-				else: 
-					proc = subprocess.Popen('"C:\Program Files\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=False)	
-					self.speechProcesses.append(proc)
-			else:
-				if block: proc = subprocess.call('say "%s"' % text,shell=True)
+		# if I said it a second ago, don't say it now
+		if not self.lastSaid.has_key(text) or time.time() - self.lastSaid[text] > 1:
+			self.lastSaid[text] = time.time()
+			if interrupt: # interrupt, or speak simultaneously
+				self.StopSpeaking()
+			try:
+				print 'Speaking: %s' % text
+				if os.name == 'nt':
+					if block: proc = subprocess.call('"C:\Program Files\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=True)
+					else: 
+						proc = subprocess.Popen('"C:\Program Files\eSpeak\command_line\espeak" -v en-us "%s"' % text,shell=False)	
+						self.speechProcesses.append(proc)
 				else:
-					proc = subprocess.Popen('say "%s"' % text,shell=True)
-					self.speechProcesses.append(proc)
-		except Exception as e:
-			print "Failed to speak: %s" % e
+					if block: proc = subprocess.call('say "%s"' % text,shell=True)
+					else:
+						proc = subprocess.Popen('say "%s"' % text,shell=True)
+						self.speechProcesses.append(proc)
+			except Exception as e:
+				print "Failed to speak: %s" % e
 			
 	def StopSpeaking(self):
 		for p in self.speechProcesses:

@@ -17,6 +17,8 @@ def CallOCREngine(fileID, workingDirectory='./ocrtemp/', recognizer = 'tesseract
 		result = ocr_tesseract(fileID,fname,workingDirectory)
 	elif recognizer == 'abbyy':
 		result = ocr_abbyy(workingDirectory+fname)
+	elif recognizer == 'none':
+		result = 'test'
 	
 	return (result, fileID)
 

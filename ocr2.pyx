@@ -54,7 +54,7 @@ class OCRManager(object): # manage OCR for a single set of images
 		boxes2 = []
 		for box in boxes:
 			ratio = float(box[WIDTH]) / box[HEIGHT]
-			if ratio > self.boxAspectThresh and box[WIDTH] > self.boxMinSize and box[HEIGHT] > self.boxMinSize and box[WIDTH]*box[HEIGHT] > self.boxMinSize*3:
+			if ratio > self.boxAspectThresh and box[HEIGHT] > self.boxMinSize and box[HEIGHT] > self.boxMinSize and box[WIDTH]*box[HEIGHT] > self.boxMinSize*3:
 				boxes2.append(box)
 		return boxes2
 
