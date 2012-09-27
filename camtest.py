@@ -2,7 +2,7 @@
 # 1 parameter. if it's 1, use the large size. otherwise small
 # if it's b, show the bg
 
-import cv, util, sys, bg2
+import cv, util, sys, bg2, sys
 
 windowTitle = 'camtest'
 camSmall = (640,480)
@@ -26,10 +26,12 @@ imgCopy = cv.CreateImage(imSize, vidDepth, 3) # a rotated copy
 imgFG = cv.CreateImage(imSize, vidDepth, 1)
 
 # set up cam
-camera = cv.CaptureFromCAM(0)
-cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, camSize[0])
-cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_HEIGHT, camSize[1])
+camera = cv.CaptureFromCAM(1)
+#cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_WIDTH, camSize[0])
+#cv.SetCaptureProperty(camera, cv.CV_CAP_PROP_FRAME_HEIGHT, camSize[1])
 img = cv.QueryFrame(camera)
+cv.SaveImage('kinect.jpg',img)
+sys.exit()
 util.RotateImage(img, imgCopy, rotate)
 
 # bg

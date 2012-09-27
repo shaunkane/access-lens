@@ -141,6 +141,7 @@ def main():
 		bg2.FindSkin(imgYCC,imgSkin,doCleanup=False,showMaybeSkin=True)
 		
 		if ocrDone: 
+			pass
 			cv.And(imgFG,imgSkin,imgFG)
 			#cv.MorphologyEx(imgFG,imgFG,None,element,cv.CV_MOP_CLOSE, erodeIterations)
 			#cv.MorphologyEx(imgFG,imgFG,None,element,cv.CV_MOP_OPEN, erodeIterations)
@@ -352,7 +353,7 @@ def main():
 				if not tracking:
 					if colorMode:
 						cv.CvtColor(imgCopy,imgHSV,cv.CV_BGR2HSV)
-						color = cv.Get2D(imgHSV, finger[1], finger[0])
+						color = cv.Get2D(imgHSV, max(finger[1]-20,0), finger[0])
 						colorName = GetColorName(color)
 						# if colorName != lastColor:
 						speech.Say(colorName)
@@ -366,14 +367,17 @@ def main():
 								if lastTouched == overlay:
 									if not tableMode: 
 										accumulator += 1
-									if accumulator > 30: # start tracking
+									if accumulator > 60: # start tracking
 										speech.Say('Locating %s' % ocrResults[index])
 										trackingTarget = smallBoxes[index]
 										tracking = True
 										accumulator = 0
 								else:
-									speech.Say('Shortcut to %s' % ocrResults[index])
-									accumulator = 1
+									try:
+										speech.Say('Shortcut to %s' % ocrResults[index])
+										accumulator = 1
+									except KeyError:
+										print 'whoops'
 								lastTouched = overlay
 								handledFinger = True
 						# if that doesn't work, see if we are in the paper
@@ -391,7 +395,11 @@ def main():
 							if lastTouched == box:
 								pass
 							else: # we are in a box
-								if not tableMode: speech.Say(ocrResults[index])
+								if not tableMode: 
+									try:
+										speech.Say(ocrResults[index])
+									except KeyError:
+										print 'whoops'
 								else: # get the row and column
 									row, col = GetTableHeaders(box,leftRow,topRow)
 									speech.Say('%s, row %s, column %s' % (ocrResults[index],row,col))
@@ -450,13 +458,17 @@ def main():
 				bg2.FindBackground(imgCopy, imgFG, bgModel)
 				cv.ShowImage(windowTitle, imgFG)
 				cv.WaitKey(10)
+		elif char == ' ':
+			speech.StopSpeaking()
+			tracking = False
 				
 		### STEP FOUR AND A HALF: CHECK FOR VOICE COMMANDS
-		if ocrDone and not tracking and char == ' ':
+		
+		if ocrDone and not tracking and char == 'v':
 			# available voice commands: color mode, text mode, find, rerecognize, cancel
 			util.beep()
 			print 'Waiting for voice command'
-			commands = ['color','text','find','recognize','cancel', 'all','help','overlay']
+			commands = ['color','text','find','recognize','cancel', 'list','help','overlay']
 			input = speech.listen(commands, 5)
 			if input is None: 
 				util.beep()
@@ -486,12 +498,13 @@ def main():
 				firstWords = []
 				phrases = []
 				for i in range(0, len(ocrResults)):
-					phrase = ocrResults[i]
-					phrases.append(phrase)
-					if phrase is None:
-						firstWords.append(None)
-					else:
-						firstWords.append(phrase.split(' ')[0].lower())
+					if ocrResults.has_key(i):
+						phrase = ocrResults[i]
+						phrases.append(phrase)
+						if phrase is None:
+							firstWords.append(None)
+						else:
+							firstWords.append(phrase.split(' ')[0].lower())
 
 				wordFind = speech.listen(firstWords, 10)
 				if wordFind is None: 
@@ -508,9 +521,9 @@ def main():
 			elif input == 'table':
 				speech.Say('Set table mode')
 				overlays, overlayIndex = CreateTableOverlays(smallBoxes, docWidth, docHeight)
-			elif input == 'all':
+			elif input == 'list':
 				# get all results
-				items = [ocrResults[i] for i in range(0, len(smallBoxes)) if ocrResults[i] is not None and ocrResults[i] != '']
+				items = [ocrResults[i] for i in range(0, len(smallBoxes)) if ocrResults.has_key(i) and ocrResults[i] is not None and ocrResults[i] != '']
 				whatToSay = '%d items. ' % len(items)
 				for i in items:
 					whatToSay += 'Item %s. ' %i
@@ -523,8 +536,8 @@ def main():
 		# boxes and overlays
 		for i in range(0,len(smallBoxes)):
 			b = smallBoxes[i]
-			util.DrawRect(imgCopy, b, color=(0,0,255), transform=transformInv)
 			if ocrResults.has_key(i) and (ocrResults[i] is not None and ocrResults[i] != ''):
+				util.DrawRect(imgCopy, b, color=(0,0,255), transform=transformInv)
 				pbox = util.Transform((b[X],b[Y]), transformInv)
 				util.DrawText(imgCopy, ocrResults[i], pbox[X], pbox[Y], color=(0,0,255))				
 
@@ -596,7 +609,7 @@ def CreateOverlays(boxes, docWidth, docHeight, sides, maxOverlays=8):
 	if sides == 1: # if portrait, right side. otherwise, bottom
 		portrait = docHeight > docWidth
 		if portrait: right = True
-		else: bottom = True
+		else: right = True # this used to be bottom
 	elif sides == 2: # right and bottom
 		right, bottom = True, True
 	elif sides == 4: # you guessed it
@@ -616,7 +629,7 @@ def CreateOverlays(boxes, docWidth, docHeight, sides, maxOverlays=8):
 	
 	if right:
 		for i in range(0, numOverlays):
-			over = (docWidth, overlayVHeight*i, overlayVWidth, overlayVHeight)
+			over = (docWidth*0.95, overlayVHeight*i, overlayVWidth, overlayVHeight)
 			overlays.append(over)
 			overlayIndex.append(i)
 	if left:
